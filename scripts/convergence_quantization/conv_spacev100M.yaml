@@ -1,0 +1,43 @@
+# W1/W2/W4 (convergence under quantization) — spacev100M iter150 (int8, dim 100).
+# CONTAINER paths (worker-host danns). Caveat: dataset is int8 -> sq8 == raw precision
+# (no estimation noise; expect exact-like latch behaviour — analysis notes this).
+_common: &common
+  dtype: int8
+  dim: 100
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+  query_file:  /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  R: 64
+  L_build: 100
+  K: 10
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  n_query: null
+  num_threads: 64
+  pq_variants:
+    - {name: M10, codebook: /experiments/artifacts/spacev100M/pq/M10/pq_codebook.bin, codes: /experiments/artifacts/spacev100M/pq/M10/pq_all_codes.bin}
+    - {name: M32, codebook: /experiments/artifacts/spacev100M/pq/M32/pq_codebook.bin, codes: /experiments/artifacts/spacev100M/pq/M32/pq_all_codes.bin}
+  conv_modes: exact,pq@M10,pq@M32,sq8,rabitq
+  w1_L_sweep: [50, 100, 200, 400]
+  trace_Ls: [100, 400]
+  trace_n_queries: 1000
+  w4_variant: M32
+  w4_Ls: [100, 200, 400]
+  w4_gate_alphas: [-1, 0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5]
+  w4_partitions: [balanced, lits]
+  partitions:
+    - {name: balanced, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_round_robin/partition_ids.npy}
+    - {name: lits,     M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  spacev100M_B_iter150:
+    <<: *common
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/iteration150.tags
+  spacev100M_SP_lits150:
+    <<: *common
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags

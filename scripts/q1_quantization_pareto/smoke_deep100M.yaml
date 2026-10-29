@@ -1,0 +1,30 @@
+# Smoke test for the single_engine module (deep100M, CONTAINER paths).
+# 1K queries, L=100 only — validates: single_engine import, exact recall vs Q1
+# (~0.96 @L100), pq_rerank beam-scope (~0.52, parity with full), and the A0
+# fetch-accounting counters under the M4 rr partition (~75% remote expected).
+datasets:
+  deep100M:
+    dtype: float32
+    dim: 96
+    max_points: 100000000
+    max_capacity: 300000000
+    graph_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration0
+    base_file:   /workspace/datasets_nfs/DEEP1B/deep100M_base.fbin
+    tags_file:   /experiments/artifacts/deep100M/graph/checkpoints/iteration0.tags
+    pq_codebook: /experiments/artifacts/deep100M/pq/M12/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep100M/pq/M12/pq_all_codes.bin
+    query_file:  /workspace/datasets_nfs/DEEP1B/deep100M_query.fbin
+    gt_file:     /workspace/datasets_nfs/DEEP1B/deep100M_gt_K10_Q10000.npy
+    id_offset: 0
+    R: 64
+    L_build: 100
+    K: 10
+    L_search: 100
+    L_search_sweep: [100]
+    conv_window: 3
+    conv_threshold_pct: 1.0
+    n_query: 1000
+    num_threads: 32
+    max_drops: 100000
+    partitions:
+      - {name: M4, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}

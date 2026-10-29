@@ -1,0 +1,40 @@
+# OPQ query-rotation VERIFICATION (2026-08-21) — must reproduce the 08-06 run.
+#
+# 08-06 protocol: rotated base (deep300M_base_opq_m32.fbin, 115 GB on disk) +
+# rotated queries (..._queries_opq_m32.npy) + pq/M32_opq, harness unmodified.
+# NEW protocol: ORIGINAL base + ORIGINAL queries + pq/M32_opq + opq_rotation.npy;
+# the harness rotates the query for the PQ LUT only. R is orthogonal, so
+# ||Rq - Rx|| == ||q - x|| and both protocols must agree exactly.
+#
+# Reference (results_opq_deep100M_worker-host/deep100M_B_iter150_opq_m32_q1_pareto.json):
+#   L=100  raw 0.9665  pq 0.6071  pq_rerank 0.9478
+#   L=400  raw 0.9946  pq 0.6120  pq_rerank 0.9918
+# raw must match to ~1e-4 (it does not involve the rotation at all); pq and
+# pq_rerank must match to within float-reassociation noise.
+datasets:
+  deep100M_B_iter150_opq_m32_verify:
+    K: 10
+    L_build: 100
+    L_search: 100
+    L_search_sweep: [100, 400]
+    R: 64
+    base_file: /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+    conv_threshold_pct: 1.0
+    conv_window: 3
+    dim: 96
+    dtype: float32
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+    gt_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+    id_offset: 0
+    max_capacity: 300000000
+    max_drops: 100000
+    max_points: 100000000
+    n_query: null
+    num_threads: 64
+    opq_rotation: /experiments/artifacts/deep100M/pq/M32_opq/opq_rotation.npy
+    pq_codebook: /experiments/artifacts/deep100M/pq/M32_opq/pq_codebook.bin
+    pq_codes: /experiments/artifacts/deep100M/pq/M32_opq/pq_all_codes.bin
+    q1_modes: exact,pq,pq_rerank
+    q1_rerank_scope: beam
+    query_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    tags_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags

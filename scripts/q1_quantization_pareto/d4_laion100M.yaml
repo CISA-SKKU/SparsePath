@@ -1,0 +1,47 @@
+# D4 campaign (MR#8 within-system sweep) — laion100M, SP(lits) graph ONLY.
+# Code budget rule: one byte per four vector dimensions (M = dim/4 = 128).
+# Codes = pq/M128_active (08-15). ⚠️ codes file header N=250,000,000 (=32.0 GB
+# resident; pq_meta encoded_gid_range [0,407M] is WRONG — verified by header).
+# Active window [150M,250M) is covered with zero margin at the top boundary.
+# GT: only K100 files exist for laion; recall_at_k slices [:K]. Same approach
+# as the 07-20 Q1 run, but THIS run uses q1_rerank_scope=beam (the old laion
+# numbers are full-scope and must not be merged with these).
+# Memory: base active window ~204.8 GB + graph 23.5 GB + codes 32.0 GB → swap
+# on a 251 GB node. worker-host only (swap 239 GB). Never socket-split-container (128 GB ceiling).
+_common: &common
+  dtype: float32
+  dim: 512
+  max_points: 100000000
+  max_capacity: 250000000        # pq M128_active codes N=250,000,000 (file header)
+  base_file:   /workspace/datasets_nfs/LAION400M/laion300M_base.fbin
+  pq_codebook: /experiments/artifacts/laion100M/pq/M128_active/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/laion100M/pq/M128_active/pq_all_codes.bin
+  query_file:  /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 150000000
+  active_n: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 75, 100, 125, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  n_query: null
+  num_threads: 64
+  max_drops: 2000000
+  q1_modes: exact,pq,pq_rerank
+  q1_rerank_scope: beam
+  q1_partitions: [balanced, centroid, nc, lits]
+  partitions:
+    - {name: balanced, M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_round_robin/partition_ids.npy}
+    - {name: centroid, M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+    - {name: nc,       M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_nearest_centroid/partition_ids.npy}
+    - {name: lits,     M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  laion100M_SP_lits150_m128:
+    <<: *common
+    graph_file: /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150.tags

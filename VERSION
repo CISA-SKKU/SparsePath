@@ -1,0 +1,5 @@
+package        : SparsePath artifact — VLDB'27 post-revision
+generated_utc  : 2026-10-29T08:13:36Z
+code_ref       : main @ 99719a4265e3  (search-side engine, pipeline, scripts)
+lits_build_ref : origin/lits-updatecycle @ e7c07bf90e33  (third_party/lits_build_tree, graph build only)
+generator      : tools/make_post_revision_package.sh (00_SparsePath_Artifact)

@@ -1,0 +1,50 @@
+# deep100M CAP (M10) — CONTAINER paths, 3 checkpoints (mirror M11's variant set).
+# CAP isolates BATCHING: filter_on=False, no PQ, no partitions. Only graph + base
+# + tags + query + GT are needed.
+#
+#   iter0    : initial graph, sequential tags gid=tag-1 in [0,100M), deep100M base.
+#   iter150  : updated vamana graph, active gids [150M,250M) -> deep300M POOL base
+#              + per-iteration GT (gt_iteration150_*).
+#   lits150  : SparsePath's actual placement (lits_k4_iter150). Same update schedule
+#              as vamana iter150 (same active gids) -> same deep300M base + gt_iteration150.
+_common: &common
+  dtype: float32
+  dim: 96
+  max_points: 100000000
+  K: 10
+  L_build: 100
+  conv_window: 3                    # matches beam_search.cpp ConvergenceDetector default
+  # ---- M10 sweep axes ----
+  batch_sizes: [0, 2, 4, 8, 16]     # 0 = best-first oracle baseline; paper default B=8
+  conv_threshold_pcts: [0.1, 0.5, 1.0, 2.0]
+  L_search_sweep: [100, 150, 200]   # operating region (Recall@10>=0.95) + headroom
+  n_query: null                     # all 10000 queries
+  num_threads: 32
+
+datasets:
+  deep100M_iter0:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration0
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration0.tags
+    base_file:  /workspace/datasets_nfs/DEEP1B/deep100M_base.fbin
+    query_file: /workspace/datasets_nfs/DEEP1B/deep100M_query.fbin
+    gt_file:    /workspace/datasets_nfs/DEEP1B/deep100M_gt_K10_Q10000.npy
+    id_offset: 0
+
+  deep100M_iter150:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+    base_file:  /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+    query_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+    id_offset: 0
+
+  deep100M_lits150:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+    base_file:  /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+    query_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+    id_offset: 0

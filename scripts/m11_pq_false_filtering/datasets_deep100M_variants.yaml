@@ -1,0 +1,51 @@
+# deep100M iteration150 graph variants — CONTAINER paths (worker-host danns).
+# Active gid window = [150M, 250M) (post-150-iteration sliding window). frozen_loc=100M.
+# GT + query sidecar from gt_iteration150 (id_offset=0). base = deep300M (covers gid<250M).
+# 5 of 6 configs runnable (LITS/8p missing: no 8p-lits partition/graph).
+#
+# Two graphs:
+#   deep100M_iter150      : graph=iteration150  -> Balanced(RR) + Centroid(ncb), 4p/8p each (placement differs only)
+#   deep100M_lits150      : graph=lits_k4_iter150 -> LITS/4p  (lits_iter150 unloadable: dangling .data + no .frozen)
+
+_common: &common
+  dtype: float32
+  dim: 96
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+  pq_codebook: /experiments/artifacts/deep100M/pq/M12/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/deep100M/pq/M12/pq_all_codes.bin
+  query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 150000000       # iteration150 active gids start here
+  active_n: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  deep100M_iter150:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+    partitions:
+      - {name: Balanced_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}
+      - {name: Balanced_8p, M: 8, path: /experiments/artifacts/deep100M/partition/8_partitions_round_robin/partition_ids.npy}
+      - {name: Centroid_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - {name: Centroid_8p, M: 8, path: /experiments/artifacts/deep100M/partition/8_partitions_nearest_centroid_balanced/partition_ids.npy}
+
+  deep100M_lits150:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_lits_balanced/partition_ids.npy}

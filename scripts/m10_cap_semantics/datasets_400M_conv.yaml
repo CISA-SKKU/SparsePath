@@ -1,0 +1,70 @@
+# M10 CAP conv-stats @ 400M scale — sift/spacev × (vamana iteration100, lits_k8_iter100).
+# 목적: convergence latch hop/rate의 scale 불변성 double-check (100M/200M 대비, 2026-08-07).
+# GT 부재(400M gt/ 전부 빈 디렉토리) → gt_file 생략 = recall nan, conv-stats-only 모드.
+# deep400M은 254G라 worker(256G) 불가 → worker-host(377G)에서 실행 (2026-08-07 사용자 지시로 전체 worker-host 이관).
+# CONTAINER paths (danns): /experiments = 02_SparsePath_experiments, /workspace/datasets_nfs = Datasets.
+_common: &common
+  K: 10
+  L_build: 100
+  conv_window: 3                    # beam_search.cpp ConvergenceDetector default (w=3)
+  batch_sizes: [0, 8]               # 0 = best-first baseline, 8 = paper default B
+  conv_threshold_pcts: [0.1, 1.0, 5.0]  # 50x sweep 양끝 + default (thr slice @ L=100)
+  thr_ref: 1.0
+  B_ref: 8
+  L_search_sweep: [100, 300]        # 100M/200M 앵커와 matched-L
+  thr_slice_L: [100]
+  n_query: 5000
+  num_threads: 64
+  max_points: 400000000
+  id_offset: 0
+
+datasets:
+  sift400M_vamana:
+    <<: *common
+    dtype: uint8
+    dim: 128
+    graph_file: /experiments/artifacts/sift400M/graph/checkpoints/iteration100
+    tags_file:  /experiments/artifacts/sift400M/graph/checkpoints/iteration100.tags
+    base_file:  /workspace/datasets_nfs/SIFT1B/sift1B_base.bin
+    query_file: /workspace/datasets_nfs/SIFT1B/sift300M_query.bin
+  sift400M_lits:
+    <<: *common
+    dtype: uint8
+    dim: 128
+    graph_file: /experiments/artifacts/sift400M/graph/checkpoints/lits_k8_iter100
+    tags_file:  /experiments/artifacts/sift400M/graph/checkpoints/lits_k8_iter100.tags
+    base_file:  /workspace/datasets_nfs/SIFT1B/sift1B_base.bin
+    query_file: /workspace/datasets_nfs/SIFT1B/sift300M_query.bin
+  spacev400M_vamana:
+    <<: *common
+    dtype: int8
+    dim: 100
+    graph_file: /experiments/artifacts/spacev400M/graph/checkpoints/iteration100
+    tags_file:  /experiments/artifacts/spacev400M/graph/checkpoints/iteration100.tags
+    base_file:  /workspace/datasets_nfs/SPACEV1B/spacev1b_base.bin
+    query_file: /workspace/datasets_nfs/SPACEV1B/spacev300M_query.i8bin
+  spacev400M_lits:
+    <<: *common
+    dtype: int8
+    dim: 100
+    graph_file: /experiments/artifacts/spacev400M/graph/checkpoints/lits_k8_iter100
+    tags_file:  /experiments/artifacts/spacev400M/graph/checkpoints/lits_k8_iter100.tags
+    base_file:  /workspace/datasets_nfs/SPACEV1B/spacev1b_base.bin
+    query_file: /workspace/datasets_nfs/SPACEV1B/spacev300M_query.i8bin
+  # deep400M: base = deep600M 풀(in-place 1B 확장, build_config.yaml). 쿼리 = DEEP 표준 10k(딥100M GT 부속).
+  deep400M_vamana:
+    <<: *common
+    dtype: float32
+    dim: 96
+    graph_file: /experiments/artifacts/deep400M/graph/checkpoints/iteration100
+    tags_file:  /experiments/artifacts/deep400M/graph/checkpoints/iteration100.tags
+    base_file:  /workspace/datasets_nfs/DEEP1B/deep600M_base.fbin
+    query_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  deep400M_lits:
+    <<: *common
+    dtype: float32
+    dim: 96
+    graph_file: /experiments/artifacts/deep400M/graph/checkpoints/lits_k8_iter100
+    tags_file:  /experiments/artifacts/deep400M/graph/checkpoints/lits_k8_iter100.tags
+    base_file:  /workspace/datasets_nfs/DEEP1B/deep600M_base.fbin
+    query_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy

@@ -1,0 +1,300 @@
+# ============================================================================
+# Distributed Pipeline — Unified Config Template
+# ============================================================================
+# Usage:
+#   python run_pipeline.py --config configs/my_experiment.yaml
+#   python run_pipeline.py --config configs/my_experiment.yaml --stages build partition
+#   python run_pipeline.py --config configs/my_experiment.yaml --resume-from update
+#   python run_pipeline.py --config configs/my_experiment.yaml --dry-run
+# ============================================================================
+
+# ----- Pipeline Split -----
+# build_pipeline creates the initial graph/layout/artifacts.
+# engine_pipeline runs workloads over an existing graph/layout.
+build_pipeline:
+  # Stage names are the existing implementation names.
+  # Use pq_build only when convergence_aware_prefetch.pq_filtering.enabled=true.
+  stages: ["build", "partition", "colocation", "gt"]
+  skip_if_exists: true
+
+engine_pipeline:
+  enabled: true
+  input:
+    experiment_name: "my_experiment"
+    graph_variant: "iteration0"
+  partition_policy: "nearest_centroid"
+  save_checkpoint: true
+  fail_fast: true
+
+  # Operation-based workload injected into the distributed engine.
+  # Available ops: insert, delete, consolidate, search, checkpoint
+  workload:
+    - op: search
+      num_queries: 10000
+      K: 10
+      L_values: [10, 20, 50, 100]
+    - op: insert
+      count: 5000
+    - op: delete
+      count: 5000
+    - op: consolidate
+    - op: search
+      num_queries: 10000
+      K: 10
+      L_values: [10, 20, 50, 100]
+
+# ----- Experiment Identification -----
+experiment_name: "my_experiment"
+description: "Description of experiment"
+
+# ----- Dataset -----
+dataset:
+  name: "dataset_name"
+  base_file: "path/to/base.fbin"     # Absolute or relative to dataset root
+  query_file: "path/to/query.fbin"
+  data_type: "float32"                # float32 | int8 | uint8
+  dimension: 128
+
+# ----- Build Configuration -----
+build:
+  method: "python"                    # "python" (in-memory) | "cli" (subprocess)
+  initial_size: 500000
+  max_capacity: 1100000
+  R: 64
+  L: 100
+  alpha: 1.2
+  num_threads: 0                      # 0 = auto
+
+# ----- Partition Configuration -----
+partition:
+  num_partitions: 4
+  mode: "auto"                        # auto | gpu | cpu | streaming
+  batch_size: 1000000
+  max_iter: 300
+  seed: 42
+  force: false
+  balanced: false                      # Post-hoc balanced partitioning (reassign to equalize sizes)
+  max_imbalance_ratio: 1.2             # Max allowed ratio (largest/smallest) when balanced=true
+  # Insert-pool strategy (how points in [initial_size, total_points) are assigned).
+  # Active vectors [0, initial_size) are always balanced k-means.
+  # Output path includes strategy: partition/{N}_partitions_{strategy}/
+  #   nearest_centroid           — argmin L2 to centroids (default)
+  #   nearest_centroid_balanced  — nearest, then rebalance total sizes to max_imbalance_ratio
+  #   round_robin                — gid % num_partitions
+  insert_strategy: "nearest_centroid"
+  # insert_strategy_params:      # optional; default pulls max_imbalance_ratio from above
+  #   max_imbalance_ratio: 1.2
+
+# ----- Co-location Configuration -----
+colocation:
+  enabled: true
+  fetch_mode: "separated"               # Always use "separated" (2 RDMA READs: vector + neighbors)
+  max_capacity_factor: 1.2              # Pre-allocate extra slots per partition (1.2 = 20% extra)
+  # slack_factor: 1.3                   # Neighbor list slack (default: 1.3 × R)
+  # alignment: 64                       # Entry alignment in bytes
+
+# ----- Ground Truth -----
+gt:
+  K: 10
+  num_queries: 1000
+  sample_from_active: false             # true: sample from active set; false: use query file
+
+# ----- Search Configuration -----
+search:
+  K: 10
+  L: 100
+  L_values: [10, 20, 50, 100]
+  num_queries: 1000
+  num_threads: 1                        # 1 = single-threaded, >1 = OpenMP parallel search
+  use_multi_qp: true                    # Per-thread QPs when num_threads > 1 (avoids shared-QP mutex)
+
+# ----- Benchmark / Diagnostic Probes -----
+# These are not search optimizations. Use them only to isolate bottlenecks.
+benchmark_probes:
+  compute_skip: false                   # Bypass distance compute; recall is meaningless
+
+# ----- Distributed Search Latency -----
+distributed_search:
+  # entry_mode: 0 = CENTROID_AND_FROZEN, 1 = FROZEN_ONLY (current convention)
+  # entry_mode: 1
+  #
+  # FrozenSeedCache. The frozen point's remote neighbors are the same immutable
+  # vectors for every query, but each query re-fetches them with one blocking
+  # RDMA read apiece (~R serialized RTTs before hop 1). Cache them locally,
+  # warmed once per search op. Recall-neutral: same bytes, same distances,
+  # same queue order. Default true.
+  #
+  # Staleness is contained by re-warming at every search-op boundary, so a
+  # cached seed never spans a delete / insert / consolidate. Workloads that
+  # consolidate CONCURRENTLY with search (workload op `concurrent`) have no
+  # such boundary — that op pins the cache off on its own, but set this false
+  # too if you add another concurrent search path.
+  #
+  # Verification: with the cache on, remote_vector_accesses drops by exactly
+  # frozen_seed_cache_hits (both are in search_stats_by_L).
+  frozen_seed_cache: true
+  latency:
+    local_us: 0.0
+    remote_us: 2.0
+    remote_std_us: 0.5
+    enable_jitter: true
+    compute_ns_per_dim: 0.1
+
+# ============================================================================
+# Search Optimization — convergence-aware batched fetching:
+# ============================================================================
+#
+#   candidate expand (pop best from beam)
+#     │
+#     ├─ local?  → 직접 읽기 (no RDMA)
+#     ├─ remote:
+#     │   └─ RDMA fetch (neighbor list)
+#     │
+#     neighbor 순회 (fetched neighbor list)
+#     │
+#     ├─ local  → 직접 distance 계산
+#     ├─ remote:
+#     │   ├─ [3] PQ filter                → pq_dist > worst*(1+α) 시 skip
+#     │   └─ [4] RDMA batch fetch         → distance 계산
+#
+# ============================================================================
+
+# ----- [4] Convergence-Aware Batched Fetching -----
+# Canonical search optimization. It has two sub-mechanisms:
+#   1. phase-aware batching: switch to B-way batched remote fetches after convergence
+#   2. PQ filtering: avoid full remote vector fetches using PQ approximate distance
+convergence_aware_prefetch:
+  enabled: false
+
+  batched_fetching:                 # phase-aware batching controls
+    enabled: false
+    batch_size: 0                   # B; 0 disables batched fetching
+    convergence_window: 3           # Hop window for best-distance improvement
+    convergence_threshold_pct: 1.0  # Switch threshold for converge phase
+
+  pq_filtering:
+    enabled: false
+    num_chunks: 12                  # M: number of PQ sub-quantizers
+    alpha: 0.1                      # Fetch full vector iff pq_dist <= d_worst * (1 + alpha)
+    training_sample_size: 100000
+
+# ----- Consolidation Cache -----
+consolidation_cache:
+  enabled: false                    # Search-warmed per-deleted-node consolidation cache
+  mode: per_deleted_node            # Only canonical cache implementation
+  neighbor_records_per_thread: 0    # 0 = default; cap for Di neighbor warm records
+  vector_records_per_thread: 0      # 0 = default; cap for Di vector warm records
+  vector_bytes_per_thread: 0        # 0 = default; cap for vector payload bytes
+
+# ----- Consolidation -----
+consolidation:
+  use_multi_qp: false               # Per-thread QP for lock-free RDMA (requires setup_multi_qp)
+  num_threads: 1                    # 1 = single-threaded (default), >1 = OpenMP parallel
+  pass2_num_threads: 0              # 0 = use num_threads for prune pass
+  # De-overlapped ("sync fetch") baseline. The OFF path's remote vector reads
+  # normally go through post_read_batch, which keeps 256 RDMA READ WRs in flight
+  # and interleaves posting with polling, so almost all per-read RTT is hidden.
+  # true issues them ONE AT A TIME, each drained to completion before the next —
+  # every RTT fully exposed, no fetch/fetch or fetch/compute overlap within a
+  # thread. Results are bit-identical; only the wall clock changes.
+  #
+  # Applies to BOTH arms. With the consolidation cache interceptor on, a cache
+  # HIT never reaches a fetch site, so this only serializes the interceptor's
+  # MISS fetches — which is exactly what a controlled "naive vs naive+cache"
+  # pair needs (both arms unpipelined, ratio reflects the cache and not a
+  # batching difference). Misses are ~0.7% of the OFF arm's reads, so expect the
+  # ON arm's wall clock to barely move. The run log distinguishes the two cases.
+  # Cross-THREAD overlap is untouched — set num_threads: 1 for a fully serial run.
+  #
+  # SUPERSEDED by fetch_window below: sync_fetch: true == fetch_window: 1.
+  # Still honoured unchanged; if both are set, fetch_window wins (logged).
+  sync_fetch: false
+  # Fetch in-flight WINDOW depth K for the same remote vector reads. This is the
+  # sensitivity knob that connects sync_fetch's two extremes — measured on
+  # deep100M/8p: naive (K=1) 4,662 s vs batched (K=0) 1,175 s, a 3.97x cliff —
+  # so the "baseline pipelining depth vs cache benefit" curve can be swept
+  # instead of sampled at its two endpoints.
+  #
+  #   0    unlimited: the historical batched post, up to 256 reads in flight,
+  #        posting interleaved with polling. DEFAULT; byte- and log-identical to
+  #        pre-patch behaviour.
+  #   1    one read outstanding at a time, drained before the next is posted.
+  #        Dispatches to the SAME C++ code as sync_fetch: true (same wr_id, same
+  #        10 s per-read budget, same counter, same throw), so the already
+  #        measured naive baseline IS this point of the curve.
+  #   >=2  strict sliding window: post until K are in flight, then post exactly
+  #        one more for each completion reaped. Runs the SAME post_read_batch
+  #        loop as K=0 with its flow-control cap lowered to K, so out-of-order
+  #        completion, error and timeout handling are the batched path's own.
+  #        Clamped to the SQ cap (256) — K >= 256 converges to K=0.
+  #
+  # Results are bit-identical for every K: each read's destination address is
+  # fixed by the SGL at post time, so the window changes only WHEN a read is
+  # issued, never WHERE its bytes land, and the fetch site still returns only
+  # once every read of the chunk has completed. Only wall clock moves.
+  #
+  # Same scope as sync_fetch: the remote VECTOR fetch on BOTH arms (with the
+  # cache interceptor on, hits never reach a fetch site, so K applies to the
+  # MISS fetches only). The Di 2-hop NEIGHBOR fetch is already fully
+  # synchronous and is untouched at every K. Cross-THREAD overlap is untouched
+  # too — pair with num_threads: 1 for a fully serial run.
+  # Every run logs "[CONSOLIDATE] fetch_window=K" (Python and C++ side).
+  fetch_window: 0
+  # Per-thread staging arena for fetched remote vectors (OFF path).
+  # Default (false) allocates ONE heap block per fetched remote vector
+  # (emplace_back(cmp_dim) => operator new + zero-fill + operator delete). On
+  # deep100M/8p with 10M deletes that is ~4.5e9 malloc/free pairs plus ~1.7 TB
+  # of zero-stores the memcpy immediately overwrites — all of it OUTSIDE every
+  # consolidation phase timer, so it inflates the cache-OFF wall clock without
+  # showing up anywhere in the fetch/compute breakdown.
+  # true: each thread reuses one growable arena of fixed-stride slots; steady
+  # state is zero heap traffic per fetch. Results are bit-identical (same bytes,
+  # same vec_store contents, same prune input) — only the wall clock changes.
+  #
+  # OFF-path only: ignored (with a log line) when the consolidation cache
+  # interceptor is on, so the cache ON arm keeps its historical allocation
+  # behaviour. Orthogonal to sync_fetch; all four combinations are valid.
+  # This is the "buffer-reuse OFF" rung of the cache-value ladder.
+  reuse_fetch_buffers: false
+
+
+# ----- LITS Pruning (stub) -----
+lits:
+  enabled: false
+
+# ----- Binary Trace Collection -----
+# Collects per-hop / per-entry binary traces for offline analysis.
+# Traces are written to the experiment's results directory.
+#
+# level 1 (summary):  Fixed-size per-hop records (~2MB / 10K queries)
+#   - Per-hop: expanded VID, degree, local/remote fetch counts, best/worst distance
+#   - Per-query: header + results + hop records
+#   - Sufficient for: colocation analysis, phase detection, phase-wise waste
+#
+# level 2 (detailed): Level 1 + variable-length fetched VID lists (~200MB / 10K queries)
+#   - Per-hop: additionally records every fetched VID with distance and is_remote flag
+#   - Required for: oracle/prefetch strategy, oracle waste/threshold sweep
+#
+# Consolidation trace (always full detail when enabled):
+#   - Per-entry: degree before/after, path taken, 2-hop and vector access VID sequences
+#   - Required for: cache simulation
+#
+# Output files (in <run_dir>/traces/):
+#   search_trace_N{node_id}_L{L}.bin   — one per node per L value
+#   consol_trace_N{node_id}.bin        — one per node
+trace:
+  enabled: false
+  level: 1                             # 1 = summary, 2 = detailed (+ fetched VID lists)
+  # output_dir: ""                     # Override output path (default: <run_dir>/traces/)
+
+# ----- RDMA Cluster (for distributed stages) -----
+cluster:
+  nodes_file: "nodes.yaml"        # nodes.yaml path (relative to config directory)
+  coordinator_node: 1              # default coordinator (override with --coordinator)
+
+# ----- Output Configuration -----
+output:
+  base_dir: "/workspace/04_results_distributed_pipeline"
+  save_index: true
+  save_every: 5
+  log_level: "info"

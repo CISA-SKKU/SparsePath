@@ -1,0 +1,77 @@
+# Tier A (stale vs fresh codebook) — measured at each dataset's SHIPPED M, 2026-08-04.
+#
+# WHY at the shipped M and not at M=32: at M=32 DEEP's false filtering is already
+# 0.00 pp, so a stale-vs-fresh comparison there has almost no dynamic range — "we
+# could not detect a difference" partly means "nothing is detectable at M=32 at all".
+# The shipped M (12/10/16) is where recall can actually move (DEEP 0.98 pp), so a
+# null result there is the informative one.
+#
+# The shipped codebooks are all STALE by construction: pq_meta shows
+# training_sample_size=100000, seed=42, total_remote_unique=0, i.e. stage_pq_build's
+# fallback trained on [0, initial_size) = [0,100M) while the graph's active window is
+# [150M,250M). The missing arm is FRESH — trained on [150M,250M) — which
+# build_pq_split_window.py produces with --train-lo/--train-n set to the active window.
+#
+# Everything else (graph, LITS partition, GT, queries, alpha/L grids) is identical to
+# the matrix7 cells, so any difference is attributable to codebook vintage alone.
+
+_common: &common
+  active_gid_lo: 150000000
+  active_n: 100000000
+  max_points: 100000000
+  max_capacity: 300000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  id_offset: 0
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  deep100M_M12fresh:
+    <<: *common
+    dtype: float32
+    dim: 96
+    base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+    query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/deep100M/pq/M12_fresh/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep100M/pq/M12_fresh/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  spacev100M_M10fresh:
+    <<: *common
+    dtype: int8
+    dim: 100
+    base_file:   /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+    query_file:  /experiments/artifacts/spacev100M/gt/gt_lits_k4_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/spacev100M/gt/gt_lits_k4_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/spacev100M/pq/M10_fresh/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/spacev100M/pq/M10_fresh/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  sift100M_M16fresh:
+    <<: *common
+    dtype: uint8
+    dim: 128
+    base_file:   /workspace/datasets_nfs/SIFT1B/sift300M_base.bin
+    query_file:  /experiments/artifacts/sift100M/gt/gt_lits_k4_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/sift100M/gt/gt_lits_k4_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/sift100M/pq/M16_fresh/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/sift100M/pq/M16_fresh/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/sift100M/partition/4_partitions_lits_balanced/partition_ids.npy}

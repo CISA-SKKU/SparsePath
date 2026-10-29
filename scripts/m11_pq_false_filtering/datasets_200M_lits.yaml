@@ -1,0 +1,90 @@
+# 200M LITS placement — M11 false filtering, 2026-08-04.
+# Both datasets: active gid window [300M, 500M) (verified from .tags), 150 update rounds.
+# LITS partitions were generated 2026-07-26; the lits_k4/k8 graphs already existed.
+# GT sidecars gt_lits_k4_* are symlinks to gt_iteration150_* (same active window) — fine.
+#
+# spacev200M is deliberately NOT here: its recall ceiling is 0.9294 even with the filter
+# OFF, so a Recall@10>=0.95 operating point does not exist. SIFT-200M replaces it.
+
+_deep: &deep
+  dtype: float32
+  dim: 96
+  max_points: 200000000
+  max_capacity: 1000000000          # pq codes N = 1e9
+  base_file:  /workspace/datasets_nfs/DEEP1B/deep600M_base.fbin
+  query_file: /experiments/artifacts/deep200M/gt/gt_lits_k4_iter150_K10_Q10000_queries.npy
+  gt_file:    /experiments/artifacts/deep200M/gt/gt_lits_k4_iter150_K10_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 300000000
+  active_n: 200000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+_sift: &sift
+  dtype: uint8
+  dim: 128
+  max_points: 200000000
+  max_capacity: 600000000           # pq codes N = 6e8
+  base_file:  /workspace/datasets_nfs/SIFT1B/sift600M_base.bin
+  query_file: /experiments/artifacts/sift200M/gt/gt_lits_k4_iter150_K10_Q10000_queries.npy
+  gt_file:    /experiments/artifacts/sift200M/gt/gt_lits_k4_iter150_K10_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 300000000
+  active_n: 200000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  deep200M_lits_M12:
+    <<: *deep
+    pq_codebook: /experiments/artifacts/deep200M/pq/M12/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep200M/pq/M12/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/deep200M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/deep200M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/deep200M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  deep200M_lits_M32:
+    <<: *deep
+    pq_codebook: /experiments/artifacts/deep200M/pq/M32/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep200M/pq/M32/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/deep200M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/deep200M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/deep200M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  sift200M_lits_M16:
+    <<: *sift
+    pq_codebook: /experiments/artifacts/sift200M/pq/M16/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/sift200M/pq/M16/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/sift200M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/sift200M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/sift200M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  sift200M_lits_M32:
+    <<: *sift
+    pq_codebook: /experiments/artifacts/sift200M/pq/M32/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/sift200M/pq/M32/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/sift200M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/sift200M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/sift200M/partition/4_partitions_lits_balanced/partition_ids.npy}

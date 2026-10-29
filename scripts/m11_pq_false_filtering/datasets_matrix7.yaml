@@ -1,0 +1,125 @@
+# M11 figure matrix — 7 cells: {100M/4p x 4 datasets} + {200M/8p x 3 datasets}, 2026-08-04.
+# All cells use the LITS graph AND the matching LITS partition (SparsePath's own placement).
+#
+# laion200M is excluded: its gt/ directory does not exist (graph+PQ built, GT never
+# generated). Producing it means brute-forcing 10k queries x 200M x 512-d.
+#
+# NOTE (laion100M): the earlier LAION run used graph=iteration150 with a partition that
+# has since been renamed DEPRECATED_4p_lits_balanced_legacy_apr2026 — i.e. it was
+# NOT a LITS graph and its partition is retired. This config uses the real
+# lits_k4_iter150 checkpoint (renamed 2026-08-04 from laion400m-aw100m-onk4.cp-3...) and a
+# partition regenerated from that checkpoint's .labels (verified byte-equal to the
+# partition_ids.npy convention on deep100M). GT is reused: iteration150 and lits_k4_iter150
+# cover the identical active gid set [150M,250M).
+
+_100M: &c100
+  active_gid_lo: 150000000
+  active_n: 100000000
+  max_points: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  id_offset: 0
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+_200M: &c200
+  active_gid_lo: 300000000
+  active_n: 200000000
+  max_points: 200000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  id_offset: 0
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  # ---------------- 100M / 4 partitions ----------------
+  sift100M_4p:
+    <<: *c100
+    dtype: uint8
+    dim: 128
+    max_capacity: 300000000
+    base_file:   /workspace/datasets_nfs/SIFT1B/sift300M_base.bin
+    query_file:  /experiments/artifacts/sift100M/gt/gt_lits_k4_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/sift100M/gt/gt_lits_k4_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/sift100M/pq/M16/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/sift100M/pq/M16/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/sift100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  laion100M_4p:
+    <<: *c100
+    dtype: float32
+    dim: 512
+    max_capacity: 300000000
+    base_file:   /workspace/datasets_nfs/LAION400M/laion300M_base.fbin
+    query_file:  /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000.npy
+    pq_codebook: /experiments/artifacts/laion100M/pq/M64/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/laion100M/pq/M64/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  # ---------------- 200M / 8 partitions ----------------
+  deep200M_8p:
+    <<: *c200
+    dtype: float32
+    dim: 96
+    max_capacity: 1000000000
+    base_file:   /workspace/datasets_nfs/DEEP1B/deep600M_base.fbin
+    query_file:  /experiments/artifacts/deep200M/gt/gt_lits_k8_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/deep200M/gt/gt_lits_k8_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/deep200M/pq/M12/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep200M/pq/M12/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/deep200M/graph/checkpoints/lits_k8_iter150
+    tags_file:   /experiments/artifacts/deep200M/graph/checkpoints/lits_k8_iter150.tags
+    partitions:
+      - {name: LITS_8p, M: 8, path: /experiments/artifacts/deep200M/partition/8_partitions_lits_balanced/partition_ids.npy}
+
+  spacev200M_8p:
+    <<: *c200
+    dtype: int8
+    dim: 100
+    max_capacity: 600000000
+    base_file:   /workspace/datasets_nfs/SPACEV1B/spacev600M_base.i8bin
+    query_file:  /experiments/artifacts/spacev200M/gt/gt_lits_k8_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/spacev200M/gt/gt_lits_k8_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/spacev200M/pq/M10/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/spacev200M/pq/M10/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/spacev200M/graph/checkpoints/lits_k8_iter150
+    tags_file:   /experiments/artifacts/spacev200M/graph/checkpoints/lits_k8_iter150.tags
+    partitions:
+      - {name: LITS_8p, M: 8, path: /experiments/artifacts/spacev200M/partition/8_partitions_lits_balanced/partition_ids.npy}
+
+  sift200M_8p:
+    <<: *c200
+    dtype: uint8
+    dim: 128
+    max_capacity: 600000000
+    base_file:   /workspace/datasets_nfs/SIFT1B/sift600M_base.bin
+    query_file:  /experiments/artifacts/sift200M/gt/gt_lits_k8_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/sift200M/gt/gt_lits_k8_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/sift200M/pq/M16/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/sift200M/pq/M16/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/sift200M/graph/checkpoints/lits_k8_iter150
+    tags_file:   /experiments/artifacts/sift200M/graph/checkpoints/lits_k8_iter150.tags
+    partitions:
+      - {name: LITS_8p, M: 8, path: /experiments/artifacts/sift200M/partition/8_partitions_lits_balanced/partition_ids.npy}

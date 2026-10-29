@@ -1,0 +1,41 @@
+# SparsePath artifact — orchestrator / build container (no RDMA devices).
+#
+#   cp .env.example .env && $EDITOR .env
+#   docker compose build && docker compose up -d
+#   docker compose exec danns ./build_all.sh
+#
+# Workers use docker-compose.worker.yml.template (adds /dev/infiniband + local SSD).
+# The service AND container name must stay `danns`: scripts/run_experiment.sh
+# and scripts/prepare_data.sh exec into it by that name.
+services:
+  danns:
+    image: danns:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: danns
+    hostname: danns
+    network_mode: host
+    privileged: true
+    ipc: host
+    ulimits:
+      nproc: -1
+      nofile: { soft: 65536, hard: 65536 }
+      memlock: { soft: -1, hard: -1 }
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - .:/workspace
+      - ${EXPERIMENTS_ROOT:-./experiments}:/experiments
+      - ${DATASETS_ROOT:?set DATASETS_ROOT in .env}:/workspace/datasets_nfs:ro
+    working_dir: /workspace
+    environment:
+      - DANNS_ARCH=${DANNS_ARCH:-icelake-server}      # build_all.sh ISA target (see .env.example)
+      - DANNS_FAST_MATH=${DANNS_FAST_MATH:-ON}
+      - OMP_PLACES=cores
+      - OMP_PROC_BIND=close
+      - HOST_UID=${HOST_UID:-1000}
+      - HOST_GID=${HOST_GID:-1000}
+      - USERNAME=${USERNAME:-sparsepath}
+    stdin_open: true
+    tty: true

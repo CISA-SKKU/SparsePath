@@ -1,0 +1,39 @@
+# M10 CAP — laion100M 추가 (2026-08-07). 7월 datasets_full에서 deferred였던 4번째 데이터셋.
+# 당시 사유 3종 중 GT(gt_iteration150 K10)·lits(lits_k4_iter150) 해소 확인, 메모리만 잔존 →
+# 512d fp32 = 100M 윈도우 204.8G, 로더 이중버퍼 피크 ~412G → swap 224G인 worker-host 전용.
+# 그리드는 datasets_full._common과 동일 (2-slice: recall B-sweep + threshold sweep).
+# CONTAINER paths (danns).
+_common: &common
+  K: 10
+  L_build: 100
+  conv_window: 3
+  batch_sizes: [0, 2, 4, 8, 16]
+  conv_threshold_pcts: [0.1, 0.5, 1.0, 2.0]
+  thr_ref: 1.0
+  B_ref: 8
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  thr_slice_L: [100, 200]
+  n_query: 5000
+  num_threads: 64
+  max_points: 100000000
+  id_offset: 0
+
+datasets:
+  laion100M_vamana:
+    <<: *common
+    dtype: float32
+    dim: 512
+    graph_file: /experiments/artifacts/laion100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/laion100M/graph/checkpoints/iteration150.tags
+    base_file:  /workspace/datasets_nfs/LAION400M/laion400M_base.fbin
+    query_file: /experiments/artifacts/laion100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/laion100M/gt/gt_iteration150_K10_Q10000.npy
+  laion100M_lits:
+    <<: *common
+    dtype: float32
+    dim: 512
+    graph_file: /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150.tags
+    base_file:  /workspace/datasets_nfs/LAION400M/laion400M_base.fbin
+    query_file: /experiments/artifacts/laion100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/laion100M/gt/gt_iteration150_K10_Q10000.npy

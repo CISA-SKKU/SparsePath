@@ -1,0 +1,39 @@
+# Smoke — deep100M B_iter150, 1K queries, single L, small trace. Verifies:
+# latch export sane, trace arrays consistent (offsets/topk shapes), recall
+# matches A1 (exact ~0.963 @L100 10K; 1K subset will differ slightly), W4 gate
+# alpha=-1 == no-gate baseline fetch == L.
+_common: &common
+  dtype: float32
+  dim: 96
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+  query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  R: 64
+  L_build: 100
+  K: 10
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  n_query: 1000
+  num_threads: 64
+  pq_variants:
+    - {name: M12, codebook: /experiments/artifacts/deep100M/pq/M12/pq_codebook.bin, codes: /experiments/artifacts/deep100M/pq/M12/pq_all_codes.bin}
+    - {name: M32, codebook: /experiments/artifacts/deep100M/pq/M32/pq_codebook.bin, codes: /experiments/artifacts/deep100M/pq/M32/pq_all_codes.bin}
+  conv_modes: exact,pq@M12,sq8
+  w1_L_sweep: [100]
+  trace_Ls: [100]
+  trace_n_queries: 200
+  w4_variant: M32
+  w4_Ls: [100]
+  w4_gate_alphas: [-1, 0.1, 0.3]
+  w4_partitions: [lits]
+  partitions:
+    - {name: lits, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  deep100M_B_iter150_smoke:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags

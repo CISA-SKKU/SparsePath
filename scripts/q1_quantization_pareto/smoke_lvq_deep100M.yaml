@@ -1,0 +1,34 @@
+# LVQ smoke (2026-08-21) — validates the lvq8 / lvq4 / lvq4x8 code paths end to
+# end on the real campaign graph (deep100M SP=lits_k4_iter150), 1K queries, L=100
+# only. Not a campaign cell: use d4_deep100M_lvq.yaml for the real run.
+#
+# Expected ordering (sanity, not a target):
+#   exact >= lvq4x8 >= lvq8 > lvq4      (more bits / a rerank level -> more recall)
+# exact @L100 on this graph is the d4_deep100M reference point.
+datasets:
+  deep100M_lvq_smoke:
+    dtype: float32
+    dim: 96
+    max_points: 100000000
+    max_capacity: 300000000
+    base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+    graph_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+    query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/deep100M/pq/M24_active/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep100M/pq/M24_active/pq_all_codes.bin
+    q1_load_pq: false          # no PQ mode here -> skip the 7.2 GB code load
+    id_offset: 0
+    R: 64
+    L_build: 100
+    K: 10
+    L_search: 100
+    L_search_sweep: [100]
+    conv_window: 3
+    conv_threshold_pct: 1.0
+    n_query: 1000
+    num_threads: 64
+    max_drops: 100000
+    q1_modes: exact,lvq8,lvq4,lvq4x8
+    q1_rerank_scope: beam

@@ -1,0 +1,21 @@
+# build outputs
+build/
+lib/
+lib_*/
+third_party/lits_build_tree/build/
+third_party/lits_build_tree/lib/
+# runtime
+experiments/results/*
+!experiments/results/.gitkeep
+experiments/artifacts/*/graph/
+experiments/artifacts/*/partition/
+experiments/artifacts/*/colocation/
+experiments/artifacts/*/pq/
+experiments/artifacts/*/gt/
+experiments/configs/nodes.yaml
+docker-compose.worker.yml
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log

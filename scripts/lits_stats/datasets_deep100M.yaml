@@ -1,0 +1,30 @@
+# deep100M LITS stats — CONTAINER paths (run inside worker danns container).
+# Measures already-built graphs (no rebuild). Reproduces the paper remote-edge
+# headline: lits 7.56% vs vamana+ncb 24.8% vs vamana+rr 75.0%.
+#
+# load_topology reads ONLY graph adjacency + tags (no base vectors), so the
+# non-sequential iter150 tags (gids up to 250M, beyond the 100M base) are fine.
+#
+# Partition indexing:
+#   lits .labels          -> kind: labels        (tag-indexed, by_tag=True)
+#   vamana partition_ids  -> kind: partition_ids  (gid-indexed=tag-1; len 300M covers the pool)
+datasets:
+  deep100M:
+    dtype: float32
+    dim: 96
+    max_points: 110000000        # >= graph node count (100M active + frozen)
+    graphs:
+      - name: lits_k4_iter150
+        graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+        tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+        partitions:
+          - {name: lits_labels, kind: labels,
+             file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.labels}
+      - name: vamana_iter150
+        graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+        tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+        partitions:
+          - {name: ncb_4p, kind: partition_ids,
+             file: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+          - {name: rr_4p, kind: partition_ids,
+             file: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}

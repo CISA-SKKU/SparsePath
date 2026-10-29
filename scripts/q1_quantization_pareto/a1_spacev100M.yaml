@@ -1,0 +1,42 @@
+# A1 (M08 재접근) — spacev100M iteration150 (int8, dim 100, PQ M10), CONTAINER paths.
+# Same design as a1_deep100M.yaml. Caveat: dataset is already int8 -> sq8 gives no
+# compression (= raw bytes); kept for completeness with the caveat noted in analysis.
+_common: &common
+  dtype: int8
+  dim: 100
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+  pq_codebook: /experiments/artifacts/spacev100M/pq/M10/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/spacev100M/pq/M10/pq_all_codes.bin
+  query_file:  /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  n_query: null
+  num_threads: 64
+  max_drops: 100000
+  q1_modes: exact,pq,pq_rerank,sq8,rabitq,rabitq_rerank
+  q1_rerank_scope: beam
+  q1_partitions: [balanced, centroid, nc, lits]
+  partitions:
+    - {name: balanced, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_round_robin/partition_ids.npy}
+    - {name: centroid, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+    - {name: nc,       M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_nearest_centroid/partition_ids.npy}
+    - {name: lits,     M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  spacev100M_B_iter150:
+    <<: *common
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/iteration150.tags
+  spacev100M_SP_lits150:
+    <<: *common
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags

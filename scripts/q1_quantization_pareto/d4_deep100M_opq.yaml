@@ -1,0 +1,52 @@
+# MR#8 auxiliary quantizer arm — OPQ at the SAME D/4 code budget (2026-08-21).
+#
+# Identical to d4_deep100M.yaml in EVERY other respect (SP=lits_k4_iter150 graph,
+# beam-scope terminal rerank, L grid, queries, GT, partition labels) — the only
+# change is the codebook family: pq/M24_active -> pq/M24_opq, plus the
+# query-side rotation opq_rotation.
+#
+# OPQ = orthogonal rotation R + plain PQ. The codes live in the rotated frame;
+# the harness applies R to the query for the PQ LUT only, while every EXACT
+# distance (raw traversal + terminal rerank) stays in the original frame with the
+# original base file. Exact because R is orthogonal: ||Rq - Rx|| == ||q - x||.
+# Verified against the 2026-08-06 rotated-base run (deep, M32) — see
+# verify_opq_deep100M.yaml.
+#
+# RECALL ONLY — the query rotation adds a D x D matvec per query and PQ codes are
+# loaded cold, so qps_1node in the output JSON is NOT a valid timing measurement.
+_common: &common
+  dtype: float32
+  dim: 96
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+  pq_codebook: /experiments/artifacts/deep100M/pq/M24_opq/pq_codebook.bin
+  opq_rotation: /experiments/artifacts/deep100M/pq/M24_opq/opq_rotation.npy
+  pq_codes:    /experiments/artifacts/deep100M/pq/M24_opq/pq_all_codes.bin
+  query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 75, 100, 125, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  n_query: null
+  num_threads: 64
+  max_drops: 100000
+  q1_modes: exact,pq,pq_rerank
+  q1_rerank_scope: beam
+  q1_partitions: [balanced, centroid, nc, lits]
+  partitions:
+    - {name: balanced, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}
+    - {name: centroid, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+    - {name: nc,       M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid/partition_ids.npy}
+    - {name: lits,     M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  deep100M_SP_lits150_m24_opq:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags

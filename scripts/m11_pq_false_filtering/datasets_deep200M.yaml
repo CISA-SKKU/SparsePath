@@ -1,0 +1,38 @@
+# deep200M iteration150 — float32 dim96, PQ M12 (N=1e9). CONTAINER paths (worker danns).
+# active gid [300M,500M) (frozen_loc=200M=max_points). base deep600M (header 1e9). GT Q10000, id_offset=0.
+# Balanced(rr)/Centroid(ncb) x 4p/8p/16p. (deep200M has no lits_balanced partition -> LITS omitted.)
+
+datasets:
+  deep200M_iter150:
+    dtype: float32
+    dim: 96
+    max_points: 200000000
+    max_capacity: 1000000000          # pq codes N=1e9
+    graph_file:  /experiments/artifacts/deep200M/graph/checkpoints/iteration150
+    tags_file:   /experiments/artifacts/deep200M/graph/checkpoints/iteration150.tags
+    base_file:   /workspace/datasets_nfs/DEEP1B/deep600M_base.fbin
+    pq_codebook: /experiments/artifacts/deep200M/pq/M12/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep200M/pq/M12/pq_all_codes.bin
+    query_file:  /experiments/artifacts/deep200M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/deep200M/gt/gt_iteration150_K10_Q10000.npy
+    id_offset: 0
+    active_gid_lo: 300000000
+    active_n: 200000000
+    R: 64
+    L_build: 100
+    K: 10
+    L_search: 100
+    L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+    conv_window: 3
+    conv_threshold_pct: 1.0
+    alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+    n_query: null
+    num_threads: 32
+    max_drops: 2000000
+    partitions:
+      - {name: Balanced_4p,  M: 4,  path: /experiments/artifacts/deep200M/partition/4_partitions_round_robin/partition_ids.npy}
+      - {name: Balanced_8p,  M: 8,  path: /experiments/artifacts/deep200M/partition/8_partitions_round_robin/partition_ids.npy}
+      - {name: Balanced_16p, M: 16, path: /experiments/artifacts/deep200M/partition/16_partitions_round_robin/partition_ids.npy}
+      - {name: Centroid_4p,  M: 4,  path: /experiments/artifacts/deep200M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - {name: Centroid_8p,  M: 8,  path: /experiments/artifacts/deep200M/partition/8_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - {name: Centroid_16p, M: 16, path: /experiments/artifacts/deep200M/partition/16_partitions_nearest_centroid_balanced/partition_ids.npy}

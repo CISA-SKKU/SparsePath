@@ -1,0 +1,55 @@
+# MR#8 OPQ D/4 arm, REBUILD v2 (2026-08-21) — supersedes d4_laion100M_opq.yaml.
+#
+# v1 (pq/M128_opq) used faiss OPQMatrix's default RANDOM rotation init and a
+# 200K codebook sample. Measured held-out reconstruction error vs plain PQ on
+# the same sample: deep 0.86x (helps) but spacev 1.25x and sift 1.56x (HURTS),
+# which is why v1 lost 3.0-3.5pp pq-only on those two. Not a harness bug — the
+# LUT identity LUT(R q) == ||q - x_hat||^2 holds to 1e-6 and the stored codes
+# re-encode 100% identically; the rotation itself is just a worse local optimum.
+#
+# v2 (pq/M128_opq_v2) trains BOTH random- and identity-initialised rotations and
+# keeps whichever wins on a held-out slice (OPQ is a refinement of PQ and must
+# never lose to it), with the codebook trained on 1M rows to match the shipped
+# M*_active pipeline protocol. Expected: deep keeps its gain, spacev/sift land
+# on the plain-PQ curve instead of below it.
+#
+# Everything else is identical to d4_laion100M.yaml (SP=lits_k4_iter150, beam scope,
+# same L grid, queries, GT, partition labels). RECALL ONLY — timing invalid.
+_common: &common
+  dtype: float32
+  dim: 512
+  max_points: 100000000
+  max_capacity: 250000000        # pq M128_active codes N=250,000,000 (file header)
+  base_file:   /workspace/datasets_nfs/LAION400M/laion300M_base.fbin
+  pq_codebook: /experiments/artifacts/laion100M/pq/M128_opq_v2/pq_codebook.bin
+  opq_rotation: /experiments/artifacts/laion100M/pq/M128_opq_v2/opq_rotation.npy
+  pq_codes:    /experiments/artifacts/laion100M/pq/M128_opq_v2/pq_all_codes.bin
+  query_file:  /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 150000000
+  active_n: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 75, 100, 125, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  n_query: null
+  num_threads: 64
+  max_drops: 2000000
+  q1_modes: exact,pq,pq_rerank
+  q1_rerank_scope: beam
+  q1_partitions: [balanced, centroid, nc, lits]
+  partitions:
+    - {name: balanced, M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_round_robin/partition_ids.npy}
+    - {name: centroid, M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+    - {name: nc,       M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_nearest_centroid/partition_ids.npy}
+    - {name: lits,     M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  laion100M_SP_lits150_m128_opq_v2:
+    <<: *common
+    graph_file: /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150.tags

@@ -1,0 +1,31 @@
+# A1-T (M08) — single-node compute-throughput ratio measurement (worker-host, CONTAINER paths).
+# Purpose: replace the Fig-C "compute-parity" ASSUMPTION with a MEASURED per-mode
+# compute ratio: qps_1node(mode)/qps_1node(exact) at the same L. No partitions
+# (label counting off -> pure compute), 10K queries, L matching the Q4 anchor set.
+# Distributed QPS estimate then = Q4 SP-r measured QPS x measured ratio.
+datasets:
+  deep100M_B_iter150:
+    dtype: float32
+    dim: 96
+    max_points: 100000000
+    max_capacity: 300000000
+    graph_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+    tags_file:   /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+    base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+    pq_codebook: /experiments/artifacts/deep100M/pq/M12/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep100M/pq/M12/pq_all_codes.bin
+    query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+    id_offset: 0
+    R: 64
+    L_build: 100
+    K: 10
+    L_search: 100
+    L_search_sweep: [50, 100, 200, 400]
+    conv_window: 3
+    conv_threshold_pct: 1.0
+    n_query: null
+    num_threads: 64
+    max_drops: 100000
+    q1_modes: exact,pq_rerank,sq8
+    q1_rerank_scope: beam

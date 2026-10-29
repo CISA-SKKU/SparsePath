@@ -1,0 +1,12 @@
+# Docker build context is sent to the daemon up-front, so we must
+# exclude the experiment data (scripts/experiments/ is ~5.5T) and
+# any other large/irrelevant paths. The image itself only COPYs
+# entrypoint.sh — everything else lives behind volume mounts at
+# runtime (see docker-compose*.yml). When in doubt: exclude.
+
+# Default: ignore everything ...
+*
+
+# ... then re-include only what the Dockerfile actually needs.
+!Dockerfile
+!entrypoint.sh

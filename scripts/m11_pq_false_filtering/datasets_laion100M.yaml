@@ -1,0 +1,40 @@
+# LAION 100M iteration150 — float32 dim512, PQ M64. CONTAINER paths (worker-host danns).
+# ⚠ RAM: 100M-active 512-d = ~205GB vectors + graph 24GB + codes ~19GB ≈ 249GB → needs swap on 251GB node.
+# base laion300M (611GB) — load reads active [150M,250M) = ~205GB (slow). id_offset=0 (GT absolute gid = tag-1; validate via recall_off).
+# lits_iter* symlinks broken -> LITS uses 4_partitions_lits_balanced on the base iteration150 graph (placement test).
+# Lean matrix (heavy dataset): Balanced/Centroid/LITS 4p × L{100,200,400}.
+
+_common: &common
+  dtype: float32
+  dim: 512
+  max_points: 100000000
+  max_capacity: 300000000        # pq codes N=298,405,759
+  base_file:   /workspace/datasets_nfs/LAION400M/laion300M_base.fbin
+  pq_codebook: /experiments/artifacts/laion100M/pq/M64/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/laion100M/pq/M64/pq_all_codes.bin
+  query_file:  /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 150000000
+  active_n: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [100, 200, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  laion100M_iter150:
+    <<: *common
+    graph_file: /experiments/artifacts/laion100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/laion100M/graph/checkpoints/iteration150.tags
+    partitions:
+      - {name: Balanced_4p, M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_round_robin/partition_ids.npy}
+      - {name: Centroid_4p, M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - {name: LITS_4p,     M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_lits_balanced/partition_ids.npy}

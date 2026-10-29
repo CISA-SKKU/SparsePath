@@ -1,0 +1,167 @@
+# M11 — PQ code-budget sweep: M=32 re-measurement on the five cells whose M32
+# codebook already exists on disk (2026-08-04). MEASUREMENT ONLY, no builds.
+#
+# Each cell is a byte-for-byte copy of its matching cell in datasets_matrix7.yaml
+# (or datasets_spacev100M.yaml::spacev100M_lits150 for the spacev100M cell) with
+# ONLY pq_codebook / pq_codes swapped to the M32 pair. Graph, LITS partition, GT,
+# query set, active window, L sweep and alpha grid are identical.
+#
+# max_capacity is taken from each codebook's own pq_meta.json:total_vectors
+#   spacev100M/M32  total_vectors = 300,000,000
+#   sift100M/M32    total_vectors = 300,000,000
+#   deep200M/M32    total_vectors = 1,000,000,000
+#   spacev200M/M32  total_vectors =   600,000,000
+#   sift200M/M32    total_vectors =   600,000,000
+# (all identical to the shipped-M codebook of the same cell, so the pool header
+#  is not a confound.)
+#
+# ⚠️ CONFOUND to report, not to solve: shipped-M and M32 codebooks for a cell can
+# differ in TRAINING VINTAGE as well as in M.
+#   * spacev100M/M32, sift100M/M32 : trained on a strided sample of the ACTIVE
+#     window [150M,250M), train_sample=200k, seed=42, niter=20 (M08 A1-M sweep).
+#     Shipped M10/M16 were built by the pipeline stage in 2026-04 with
+#     training_sample_size=100k over the initial pool.
+#   * deep200M/M32, spacev200M/M32, sift200M/M32 : trained on the active window
+#     [300M,500M), training_sample_size=100k, seed=42 — same sampler as shipped.
+# The separately-measured vintage effect is <= +0.06 pp with the sign flipping
+# across L, so it cannot account for a pp-scale change, but this is NOT a clean
+# single-variable comparison.
+#
+# ⚠️ spacev100M ALSO gets a MATCHED shipped-M (M10) re-run here: the published
+# 0.13 pp number was measured 2026-07-18 on the PRE-regeneration LITS partition
+# (4_partitions_lits_balanced was rebuilt 2026-07-26). recall(OFF) is partition
+# independent but recall(ON) under nc_ routing is not, so the old M10 Delta is
+# not directly comparable to an M32 run on today's partition. The other four
+# cells' shipped-M baselines were measured 2026-08-04 on the current partition
+# and need no re-run.
+#
+# Headline row is the partition-aware mode: nc_LITS_4p (100M/4p) / nc_LITS_8p
+# (200M/8p). filter_all is a diagnostic upper bound only.
+
+_100M: &c100
+  active_gid_lo: 150000000
+  active_n: 100000000
+  max_points: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  id_offset: 0
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+_200M: &c200
+  active_gid_lo: 300000000
+  active_n: 200000000
+  max_points: 200000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  id_offset: 0
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  # ---------------- 100M / 4 partitions ----------------
+  spacev100M_4p_M32:
+    <<: *c100
+    dtype: int8
+    dim: 100
+    max_capacity: 300000000
+    base_file:   /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+    query_file:  /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/spacev100M/pq/M32/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/spacev100M/pq/M32/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  # matched shipped-M baseline on TODAY's LITS partition (see header note)
+  spacev100M_4p_M10:
+    <<: *c100
+    dtype: int8
+    dim: 100
+    max_capacity: 300000000
+    base_file:   /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+    query_file:  /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/spacev100M/pq/M10/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/spacev100M/pq/M10/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  sift100M_4p_M32:
+    <<: *c100
+    dtype: uint8
+    dim: 128
+    max_capacity: 300000000
+    base_file:   /workspace/datasets_nfs/SIFT1B/sift300M_base.bin
+    query_file:  /experiments/artifacts/sift100M/gt/gt_lits_k4_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/sift100M/gt/gt_lits_k4_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/sift100M/pq/M32/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/sift100M/pq/M32/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150
+    tags_file:   /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/sift100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+  # ---------------- 200M / 8 partitions ----------------
+  deep200M_8p_M32:
+    <<: *c200
+    dtype: float32
+    dim: 96
+    max_capacity: 1000000000
+    base_file:   /workspace/datasets_nfs/DEEP1B/deep600M_base.fbin
+    query_file:  /experiments/artifacts/deep200M/gt/gt_lits_k8_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/deep200M/gt/gt_lits_k8_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/deep200M/pq/M32/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep200M/pq/M32/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/deep200M/graph/checkpoints/lits_k8_iter150
+    tags_file:   /experiments/artifacts/deep200M/graph/checkpoints/lits_k8_iter150.tags
+    partitions:
+      - {name: LITS_8p, M: 8, path: /experiments/artifacts/deep200M/partition/8_partitions_lits_balanced/partition_ids.npy}
+
+  spacev200M_8p_M32:
+    <<: *c200
+    dtype: int8
+    dim: 100
+    max_capacity: 600000000
+    base_file:   /workspace/datasets_nfs/SPACEV1B/spacev600M_base.i8bin
+    query_file:  /experiments/artifacts/spacev200M/gt/gt_lits_k8_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/spacev200M/gt/gt_lits_k8_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/spacev200M/pq/M32/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/spacev200M/pq/M32/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/spacev200M/graph/checkpoints/lits_k8_iter150
+    tags_file:   /experiments/artifacts/spacev200M/graph/checkpoints/lits_k8_iter150.tags
+    partitions:
+      - {name: LITS_8p, M: 8, path: /experiments/artifacts/spacev200M/partition/8_partitions_lits_balanced/partition_ids.npy}
+
+  sift200M_8p_M32:
+    <<: *c200
+    dtype: uint8
+    dim: 128
+    max_capacity: 600000000
+    base_file:   /workspace/datasets_nfs/SIFT1B/sift600M_base.bin
+    query_file:  /experiments/artifacts/sift200M/gt/gt_lits_k8_iter150_K10_Q10000_queries.npy
+    gt_file:     /experiments/artifacts/sift200M/gt/gt_lits_k8_iter150_K10_Q10000.npy
+    pq_codebook: /experiments/artifacts/sift200M/pq/M32/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/sift200M/pq/M32/pq_all_codes.bin
+    graph_file:  /experiments/artifacts/sift200M/graph/checkpoints/lits_k8_iter150
+    tags_file:   /experiments/artifacts/sift200M/graph/checkpoints/lits_k8_iter150.tags
+    partitions:
+      - {name: LITS_8p, M: 8, path: /experiments/artifacts/sift200M/partition/8_partitions_lits_balanced/partition_ids.npy}

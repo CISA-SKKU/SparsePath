@@ -1,0 +1,54 @@
+# M10 Convergence-Aware Prefetching semantics — per-dataset artifact paths.
+# Copy to datasets.yaml and fill the <PLACEHOLDER> paths, then:
+#   python run_m10.py --config datasets.yaml [--dataset deep100M]
+#
+# M10 isolates the BATCHING effect of Convergence-Aware Prefetching, so — unlike
+# M11 — it needs NO PQ codebook (the driver runs filter_on=False). Only the
+# Vamana graph + base vectors + tags + queries + GT are required.
+#
+#   graph_file  : <graph_dir>/checkpoints/iteration0    (the Vamana graph; no extension)
+#                 needs sidecars iteration0.tags and iteration0.frozen next to it
+#                 (pipeline defaults save_data_file=false -> vectors come from base_file).
+#   base_file   : the dataset base vectors (.fbin/.bin/.i8bin) in Datasets
+#   tags_file   : <graph_dir>/checkpoints/iteration0.tags
+#   query_file  : the query set (bin: [i32 npts][i32 dim][data])
+#   gt_file     : ground truth (bin: [i32 npts][i32 K][u32 ids][f32 dists], or .npy ids)
+#
+# id_offset: mapped_id = (tag - 1) + id_offset. GT ids are GLOBAL ids. For the
+#   iteration0 (initial) graph, global id == base index == tag-1 -> id_offset=0.
+#   The recall(baseline) sanity should be high (e.g. >0.9); if it's low, the GT
+#   id-space mapping (id_offset) is wrong.
+#
+# What the sweep answers (R7·D3):
+#   * recall_delta = recall(B=0 best-first) - recall(B) across B and threshold.
+#     Δ≈0 => batching after convergence does not hurt recall.
+#   * round_reduction = avg_fetch_rounds(B=0)/avg_fetch_rounds(B): the RDMA-round
+#     saving (QPS proxy) that batching buys.
+#   * conv_threshold_pct sweep => the per-dataset threshold-selection guide.
+
+datasets:
+  deep100M:
+    dtype: float32               # float32 | uint8 | int8
+    dim: 96
+    max_points: 100000000        # graph header start (frozen loc); >= build max_points
+    graph_file:  <PLACEHOLDER>/checkpoints/iteration0
+    base_file:   <PLACEHOLDER>/deep100M_base.fbin
+    tags_file:   <PLACEHOLDER>/checkpoints/iteration0.tags
+    query_file:  <PLACEHOLDER>/deep100M_query.fbin
+    gt_file:     <PLACEHOLDER>/deep100M_gt_K10_Q10000.npy
+    id_offset: 0
+    R: 64
+    L_build: 100
+    K: 10
+    L_search: 100
+    conv_window: 3
+    batch_sizes: [0, 2, 4, 8, 16]           # 0 = best-first baseline; paper default B=8
+    conv_threshold_pcts: [0.05, 0.1, 0.5, 1.0, 2.0]
+    L_search_sweep: [100, 150, 200]
+    n_query: null
+    num_threads: 32
+
+  # sift100M:   { dtype: uint8, dim: 128, ... }   # metric l2; same schema
+  # spacev100M: { dtype: int8,  dim: 100, ... }   # metric l2
+  # laion (512-d): use a 512-d subset that fits RAM; batching effect is graph-driven,
+  #                not point-count-driven, so a subset answers R7·D3 at lower RAM.

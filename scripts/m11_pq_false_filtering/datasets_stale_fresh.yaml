@@ -1,0 +1,149 @@
+# M11 — PQ codebook STALE vs FRESH pairs (2026-08-04).
+#
+# Claim under test: a PQ codebook trained on the INITIAL data distribution still works
+# after 150 rounds of updates.  Rather than reverse-engineering the vintage of the
+# shipped codebooks (provenance genuinely uncertain; mtimes are not evidence), BOTH arms
+# are constructed here by one identical builder (build_pq_split_window.py), changing
+# ONLY the training window:
+#
+#   stale arm : --train-lo 0            --train-n <initial_size>   (initial window)
+#   fresh arm : --train-lo <active_lo>  --train-n <active_n>       (iter-150 active window)
+#
+# Both arms encode the SAME active window, same M, same --train-sample 100000,
+# --niter 20, --seed 42.  Any difference between the arms is therefore attributable to
+# codebook vintage alone.
+#
+# recall(OFF) is codebook-independent => the stale and fresh arms of a pair MUST print
+# identical recall(OFF).  If they do not, the setup is wrong.
+#
+# Graph/partition/GT: LITS placement, identical to the 7-cell figure matrix
+# (datasets_matrix7.yaml).
+
+_100M: &c100
+  active_gid_lo: 150000000
+  active_n: 100000000
+  max_points: 100000000
+  max_capacity: 300000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  id_offset: 0
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+_200M: &c200
+  active_gid_lo: 300000000
+  active_n: 200000000
+  max_points: 200000000
+  max_capacity: 1000000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  id_offset: 0
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+_deep100M: &deep100M
+  <<: *c100
+  dtype: float32
+  dim: 96
+  base_file:  /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+  query_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:    /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+  tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+  partitions:
+    - {name: LITS_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+_deep200M: &deep200M
+  <<: *c200
+  dtype: float32
+  dim: 96
+  base_file:  /workspace/datasets_nfs/DEEP1B/deep600M_base.fbin
+  query_file: /experiments/artifacts/deep200M/gt/gt_lits_k8_iter150_K10_Q10000_queries.npy
+  gt_file:    /experiments/artifacts/deep200M/gt/gt_lits_k8_iter150_K10_Q10000.npy
+  graph_file: /experiments/artifacts/deep200M/graph/checkpoints/lits_k8_iter150
+  tags_file:  /experiments/artifacts/deep200M/graph/checkpoints/lits_k8_iter150.tags
+  partitions:
+    - {name: LITS_8p, M: 8, path: /experiments/artifacts/deep200M/partition/8_partitions_lits_balanced/partition_ids.npy}
+
+_spacev100M: &spacev100M
+  <<: *c100
+  dtype: int8
+  dim: 100
+  base_file:  /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+  query_file: /experiments/artifacts/spacev100M/gt/gt_lits_k4_iter150_K10_Q10000_queries.npy
+  gt_file:    /experiments/artifacts/spacev100M/gt/gt_lits_k4_iter150_K10_Q10000.npy
+  graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+  tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags
+  partitions:
+    - {name: LITS_4p, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+_sift100M: &sift100M
+  <<: *c100
+  dtype: uint8
+  dim: 128
+  base_file:  /workspace/datasets_nfs/SIFT1B/sift300M_base.bin
+  query_file: /experiments/artifacts/sift100M/gt/gt_lits_k4_iter150_K10_Q10000_queries.npy
+  gt_file:    /experiments/artifacts/sift100M/gt/gt_lits_k4_iter150_K10_Q10000.npy
+  graph_file: /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150
+  tags_file:  /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150.tags
+  partitions:
+    - {name: LITS_4p, M: 4, path: /experiments/artifacts/sift100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  # ---------------- deep100M / M=12 ----------------
+  deep100M_M12_stale:
+    <<: *deep100M
+    pq_codebook: /experiments/artifacts/deep100M/pq/M12_stale/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep100M/pq/M12_stale/pq_all_codes.bin
+
+  deep100M_M12_fresh:
+    <<: *deep100M
+    pq_codebook: /experiments/artifacts/deep100M/pq/M12_fresh/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep100M/pq/M12_fresh/pq_all_codes.bin
+
+  # ---------------- deep200M / M=12 ----------------
+  deep200M_M12_stale:
+    <<: *deep200M
+    pq_codebook: /experiments/artifacts/deep200M/pq/M12_stale/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep200M/pq/M12_stale/pq_all_codes.bin
+
+  deep200M_M12_fresh:
+    <<: *deep200M
+    pq_codebook: /experiments/artifacts/deep200M/pq/M12_fresh/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep200M/pq/M12_fresh/pq_all_codes.bin
+
+  # ---------------- spacev100M / M=10 ----------------
+  spacev100M_M10_stale:
+    <<: *spacev100M
+    pq_codebook: /experiments/artifacts/spacev100M/pq/M10_stale/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/spacev100M/pq/M10_stale/pq_all_codes.bin
+
+  spacev100M_M10_fresh:
+    <<: *spacev100M
+    pq_codebook: /experiments/artifacts/spacev100M/pq/M10_fresh/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/spacev100M/pq/M10_fresh/pq_all_codes.bin
+
+  # ---------------- sift100M / M=16 ----------------
+  sift100M_M16_stale:
+    <<: *sift100M
+    pq_codebook: /experiments/artifacts/sift100M/pq/M16_stale/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/sift100M/pq/M16_stale/pq_all_codes.bin
+
+  sift100M_M16_fresh:
+    <<: *sift100M
+    pq_codebook: /experiments/artifacts/sift100M/pq/M16_fresh/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/sift100M/pq/M16_fresh/pq_all_codes.bin

@@ -1,0 +1,44 @@
+# D4 campaign (MR#8 within-system sweep) — deep100M, SP(lits) graph ONLY.
+# Code budget rule: one byte per four vector dimensions (M = dim/4 = 24).
+# Codes = system filter codebook family pq/M24_active (08-15, full-range
+# [0,300M) encoding, train 1M seed 42 on active window via iteration150.tags).
+# exact runs in the SAME invocation as pq/pq_rerank so raw and quantized
+# provenance match exactly (2026-08-21 decision: no B-graph rerun, no 2x2).
+# GATE RULE (fixed in advance): if pq_rerank reaches R@10>=0.95 at L<=400,
+# D/4 is the primary configuration; if not, keep M24 as n.r. + ceiling and
+# add an SP x M32 recovery run (do NOT discard M24).
+_common: &common
+  dtype: float32
+  dim: 96
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+  pq_codebook: /experiments/artifacts/deep100M/pq/M24_active/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/deep100M/pq/M24_active/pq_all_codes.bin
+  query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 75, 100, 125, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  n_query: null
+  num_threads: 64
+  max_drops: 100000
+  q1_modes: exact,pq,pq_rerank
+  q1_rerank_scope: beam
+  q1_partitions: [balanced, centroid, nc, lits]
+  partitions:
+    - {name: balanced, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}
+    - {name: centroid, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+    - {name: nc,       M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid/partition_ids.npy}
+    - {name: lits,     M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  deep100M_SP_lits150_m24:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags

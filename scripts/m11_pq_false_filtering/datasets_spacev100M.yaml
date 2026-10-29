@@ -1,0 +1,65 @@
+# spacev100M — int8, dim 100. CONTAINER paths (worker-host danns). PQ = M10 (harness reads M from header).
+# iteration0 active gid [0,100M); iteration150 active gid [150M,250M). GT id_offset=0. base=spacev300M.
+# lits_iter* symlinks are broken -> LITS uses lits_k4_iter150.
+
+_common: &common
+  dtype: int8
+  dim: 100
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+  pq_codebook: /experiments/artifacts/spacev100M/pq/M10/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/spacev100M/pq/M10/pq_all_codes.bin
+  id_offset: 0
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  # iteration0 baseline (validates int8 path). active [0,100M). partitions here are the initial balanced-spatial split.
+  spacev100M_iter0:
+    <<: *common
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/iteration0
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/iteration0.tags
+    query_file: /experiments/artifacts/spacev100M/gt/gt_iteration0_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/spacev100M/gt/gt_iteration0_K10_Q10000.npy
+    active_gid_lo: 0
+    active_n: 100000000
+    partitions:
+      - {name: M4, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_round_robin/partition_ids.npy}
+      - {name: M8, M: 8, path: /experiments/artifacts/spacev100M/partition/8_partitions_round_robin/partition_ids.npy}
+
+  # iteration150 variants: Balanced(rr) + Centroid(ncb) share the iteration150 graph.
+  spacev100M_iter150:
+    <<: *common
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/iteration150.tags
+    query_file: /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy
+    active_gid_lo: 150000000
+    active_n: 100000000
+    partitions:
+      - {name: Balanced_4p, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_round_robin/partition_ids.npy}
+      - {name: Balanced_8p, M: 8, path: /experiments/artifacts/spacev100M/partition/8_partitions_round_robin/partition_ids.npy}
+      - {name: Centroid_4p, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - {name: Centroid_8p, M: 8, path: /experiments/artifacts/spacev100M/partition/8_partitions_nearest_centroid_balanced/partition_ids.npy}
+
+  # LITS graph variant (lits_k4_iter150 loadable; lits_iter150 symlink broken).
+  spacev100M_lits150:
+    <<: *common
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags
+    query_file: /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy
+    active_gid_lo: 150000000
+    active_n: 100000000
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/spacev100M/partition/4_partitions_lits_balanced/partition_ids.npy}

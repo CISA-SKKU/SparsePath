@@ -1,0 +1,67 @@
+# LITS stats (placement remote-edge %) — deep/sift/spacev. CONTAINER paths.
+# Reproduces the paper remote-edge headline per placement:
+#   lits (lits graph + lits labels) << centroid (vamana + ncb) << balanced (vamana + rr).
+# load_topology reads adjacency + tags only (no base vectors), so it's fast.
+_common: &common
+  max_points: 110000000
+
+datasets:
+  deep100M:
+    <<: *common
+    dtype: float32
+    dim: 96
+    graphs:
+      - name: lits_k4_iter150
+        graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+        tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+        partitions:
+          - {name: lits, kind: labels,
+             file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.labels}
+      - name: vamana_iter150
+        graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+        tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+        partitions:
+          - {name: centroid, kind: partition_ids,
+             file: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+          - {name: balanced, kind: partition_ids,
+             file: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}
+
+  sift100M:
+    <<: *common
+    dtype: uint8
+    dim: 128
+    graphs:
+      - name: lits_k4_iter150
+        graph_file: /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150
+        tags_file:  /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150.tags
+        partitions:
+          - {name: lits, kind: labels,
+             file: /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150.labels}
+      - name: vamana_iter150
+        graph_file: /experiments/artifacts/sift100M/graph/checkpoints/iteration150
+        tags_file:  /experiments/artifacts/sift100M/graph/checkpoints/iteration150.tags
+        partitions:
+          - {name: centroid, kind: partition_ids,
+             file: /experiments/artifacts/sift100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+          - {name: balanced, kind: partition_ids,
+             file: /experiments/artifacts/sift100M/partition/4_partitions_round_robin/partition_ids.npy}
+
+  spacev100M:
+    <<: *common
+    dtype: int8
+    dim: 100
+    graphs:
+      - name: lits_k4_iter150
+        graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+        tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags
+        partitions:
+          - {name: lits, kind: labels,
+             file: /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.labels}
+      - name: vamana_iter150
+        graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/iteration150
+        tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/iteration150.tags
+        partitions:
+          - {name: centroid, kind: partition_ids,
+             file: /experiments/artifacts/spacev100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+          - {name: balanced, kind: partition_ids,
+             file: /experiments/artifacts/spacev100M/partition/4_partitions_round_robin/partition_ids.npy}

@@ -1,0 +1,58 @@
+# deep100M iteration150 graph variants — PQ **M=32** re-measurement (2026-08-03).
+# Identical to datasets_deep100M_variants.yaml except pq_codebook/pq_codes -> pq/M32.
+#
+# ⚠️ CONFOUND (report it): M32 differs from M12 in TWO ways, not one.
+#   * M      : 12 -> 32 sub-quantizers (finer quantization, 1.2GB -> 3.2GB codes/machine)
+#   * vintage: M12 was trained on the INITIAL window [0,100M)  = stale
+#              M32 was trained on the ACTIVE  window [150M,250M) = fresh
+#              (pq_meta: trained_on="strided sample of active window",
+#               encoded_gid_range=[150M,250M), train_sample=200000, seed=42, niter=20)
+#   => a M12-vs-M32 delta = (M effect) + (stale->fresh effect). Tier B showed the vintage
+#      effect is small (real drift QE~1.00 => dDelta ~0), so most of the change should be M,
+#      but do NOT claim pure-M isolation from this run alone.
+#
+# M32 codes cover ONLY gid [150M,250M) (zero elsewhere) — exactly the iteration150 active
+# window, so every candidate the search touches is in range. iteration0 runs are NOT possible.
+
+_common: &common
+  dtype: float32
+  dim: 96
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+  pq_codebook: /experiments/artifacts/deep100M/pq/M32/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/deep100M/pq/M32/pq_all_codes.bin
+  query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 150000000       # iteration150 active gids start here
+  active_n: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  deep100M_M32_iter150:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+    partitions:
+      - {name: Balanced_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}
+      - {name: Balanced_8p, M: 8, path: /experiments/artifacts/deep100M/partition/8_partitions_round_robin/partition_ids.npy}
+      - {name: Centroid_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - {name: Centroid_8p, M: 8, path: /experiments/artifacts/deep100M/partition/8_partitions_nearest_centroid_balanced/partition_ids.npy}
+
+  deep100M_M32_lits150:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_lits_balanced/partition_ids.npy}

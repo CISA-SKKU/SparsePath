@@ -1,0 +1,57 @@
+# SparsePath cluster inventory — copy to experiments/configs/nodes.yaml and fill in.
+#
+#   1 orchestrator host (TCP only, no RDMA)  +  4 worker hosts (RDMA NIC).
+#   Every worker must be reachable from the orchestrator over SSH (key-based,
+#   non-interactive) and from every other worker over RDMA.
+#   The AE configs (configs/ae/*.yaml) reference this file as `../nodes.yaml`
+#   and expect exactly 4 worker entries (partition.num_partitions: 4).
+#
+# Ports are offset by port_offset on every node (shared clusters); 0 for solo use.
+port_offset: 0
+
+orchestrator:
+  id: 0
+  host: "<ORCH_HOSTNAME_OR_IP>"     # reachable from every worker (TCP sync barrier)
+  sync_port: 19700
+
+nodes:
+  - id: 1                          # = partition index + 1, dense 1..4
+    host: "<NODE1_RDMA_IP>"        # IP on the RDMA rail (RoCEv2), e.g. 10.0.0.1
+    ssh_host: "<NODE1_SSH_NAME>"   # ssh alias/hostname the orchestrator uses
+    container: "danns"             # must match docker-compose.worker.yml
+    rdma_port: 18515
+    sync_port: 19515
+    gpu: false
+    rdma_device: "mlx5_0"          # ibv_devinfo on that host
+    # local_ssd: "<NODE1_LOCAL_SSD>"   # optional host path for colocation files
+                                        # (prepare_data.sh deploy target); defaults to
+                                        # colocation.local_dir inside the container
+  - id: 2
+    host: "<NODE2_RDMA_IP>"
+    ssh_host: "<NODE2_SSH_NAME>"
+    container: "danns"
+    rdma_port: 18515
+    sync_port: 19515
+    gpu: false
+    rdma_device: "mlx5_0"
+  - id: 3
+    host: "<NODE3_RDMA_IP>"
+    ssh_host: "<NODE3_SSH_NAME>"
+    container: "danns"
+    rdma_port: 18515
+    sync_port: 19515
+    gpu: false
+    rdma_device: "mlx5_0"
+  - id: 4
+    host: "<NODE4_RDMA_IP>"
+    ssh_host: "<NODE4_SSH_NAME>"
+    container: "danns"
+    rdma_port: 18515
+    sync_port: 19515
+    gpu: false
+    rdma_device: "mlx5_0"
+
+rdma:
+  device: "mlx5_0"
+  gid_index: 3                     # RoCEv2 over IPv4 is usually GID index 3 (`show_gids`)
+  enable_detailed_latency: true

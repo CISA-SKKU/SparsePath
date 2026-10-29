@@ -1,0 +1,56 @@
+# deep100M iteration150 — PQ **M=32 trained on the INITIAL window [0,100M)** ("stale-M32").
+# Built by build_pq_split_window.py on worker-host (2026-08-03) with parameters IDENTICAL to the
+# shipped fresh pq/M32 (ksub 256, train_sample 200000, niter 20, seed 42, 32 chunks of 3)
+# — the ONLY difference is the training window. That makes the 2x2 separable:
+#
+#              trained [0,100M) = STALE        trained [150M,250M) = FRESH
+#   M=12       pq/M12                          --
+#   M=32       pq/M32_stale  (THIS)            pq/M32
+#
+#   M effect       = M32_stale - M12        (vintage held at stale)
+#   vintage effect = M32       - M32_stale  (M held at 32)
+#
+# Codes cover ONLY gid [150M,250M) (the iteration150 active window), zero elsewhere.
+
+_common: &common
+  dtype: float32
+  dim: 96
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+  pq_codebook: /experiments/artifacts/deep100M/pq/M32_stale/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/deep100M/pq/M32_stale/pq_all_codes.bin
+  query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 150000000
+  active_n: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  deep100M_M32stale_iter150:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+    partitions:
+      - {name: Balanced_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}
+      - {name: Balanced_8p, M: 8, path: /experiments/artifacts/deep100M/partition/8_partitions_round_robin/partition_ids.npy}
+      - {name: Centroid_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - {name: Centroid_8p, M: 8, path: /experiments/artifacts/deep100M/partition/8_partitions_nearest_centroid_balanced/partition_ids.npy}
+
+  deep100M_M32stale_lits150:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+    partitions:
+      - {name: LITS_4p, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_lits_balanced/partition_ids.npy}

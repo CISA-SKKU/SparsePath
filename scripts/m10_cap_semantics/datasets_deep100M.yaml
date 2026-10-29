@@ -1,0 +1,36 @@
+# deep100M iteration0 — CONTAINER paths (run inside worker-host danns container).
+# M10 (Convergence-Aware Prefetching semantics): isolates the BATCHING effect,
+# so NO PQ codebook is needed (filter_on=False in the driver). Same graph/base/
+# tags/query/GT as the M11 harness, minus the pq_* fields.
+#
+# iteration0 = initial 100M active graph, tags sequential (gid = loc = tag-1 in
+# [0,100M)); GT deep100M_gt_K10_Q10000.npy in [0,100M) -> id_offset 0.
+# frozen loc = 100M (= max_points).
+datasets:
+  deep100M:
+    dtype: float32
+    dim: 96
+    max_points: 100000000        # graph header start (frozen loc) = 100M -> ctor max_points
+    graph_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration0
+    base_file:   /workspace/datasets_nfs/DEEP1B/deep100M_base.fbin
+    tags_file:   /experiments/artifacts/deep100M/graph/checkpoints/iteration0.tags
+    query_file:  /workspace/datasets_nfs/DEEP1B/deep100M_query.fbin
+    gt_file:     /workspace/datasets_nfs/DEEP1B/deep100M_gt_K10_Q10000.npy
+    id_offset: 0
+    R: 64
+    L_build: 100
+    K: 10
+    L_search: 100
+    conv_window: 3               # matches beam_search.cpp ConvergenceDetector default
+
+    # ---- M10 sweep axes ----
+    # batch_size B: 0 = best-first oracle (baseline for recall Δ). Paper default B=8.
+    batch_sizes: [0, 2, 4, 8, 16]
+    # convergence threshold %: the knob R7·D3 asks how to select across datasets.
+    # (code default 1.0; sweep to show the recall/round trade-off + selection guide.)
+    conv_threshold_pcts: [0.05, 0.1, 0.5, 1.0, 2.0]
+    # operating points: recall grows with L; report Δ at the paper's Recall@10>=0.95 L.
+    L_search_sweep: [100, 150, 200]
+
+    n_query: null                # all 10000 queries
+    num_threads: 32              # OpenMP search threads (physical cores)

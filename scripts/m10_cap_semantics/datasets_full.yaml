@@ -1,0 +1,81 @@
+# M10 CAP full run — deep/sift/spacev × (vamana iter150, lits_k4 iter150). CONTAINER paths.
+# CAP isolates batching (filter_on=False, no PQ, no partitions). recall_delta is
+# per-GRAPH (vamana = balanced/centroid baseline graph; lits = SparsePath graph);
+# placement remote-edge% is characterized separately by run_lits_stats.py.
+# laion deferred (611G pool base, incomplete iter150 GT, no lits graph).
+_common: &common
+  K: 10
+  L_build: 100
+  conv_window: 3                    # beam_search.cpp ConvergenceDetector default
+  # ---- 2-slice sweep ----
+  batch_sizes: [0, 2, 4, 8, 16]     # 0 = best-first baseline; recall slice sweeps B at thr_ref
+  conv_threshold_pcts: [0.1, 0.5, 1.0, 2.0]
+  thr_ref: 1.0                      # recall slice threshold; paper default region
+  B_ref: 8                          # threshold slice batch; paper default B
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  thr_slice_L: [100, 200]           # threshold slice only at operating-region L's
+  n_query: 5000
+  num_threads: 64                   # worker-host physical cores
+  max_points: 100000000
+  id_offset: 0
+
+datasets:
+  # ===== deep100M (float32, 96-d) — base = deep300M pool =====
+  deep100M_vamana:
+    <<: *common
+    dtype: float32
+    dim: 96
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+    base_file:  /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+    query_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  deep100M_lits:
+    <<: *common
+    dtype: float32
+    dim: 96
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+    base_file:  /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+    query_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+
+  # ===== sift100M (uint8, 128-d) — base = sift300M pool =====
+  sift100M_vamana:
+    <<: *common
+    dtype: uint8
+    dim: 128
+    graph_file: /experiments/artifacts/sift100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/sift100M/graph/checkpoints/iteration150.tags
+    base_file:  /workspace/datasets_nfs/SIFT1B/sift300M_base.bin
+    query_file: /experiments/artifacts/sift100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/sift100M/gt/gt_iteration150_K10_Q10000.npy
+  sift100M_lits:
+    <<: *common
+    dtype: uint8
+    dim: 128
+    graph_file: /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150.tags
+    base_file:  /workspace/datasets_nfs/SIFT1B/sift300M_base.bin
+    query_file: /experiments/artifacts/sift100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/sift100M/gt/gt_iteration150_K10_Q10000.npy
+
+  # ===== spacev100M (int8, 100-d) — base = spacev300M pool =====
+  spacev100M_vamana:
+    <<: *common
+    dtype: int8
+    dim: 100
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/iteration150.tags
+    base_file:  /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+    query_file: /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy
+  spacev100M_lits:
+    <<: *common
+    dtype: int8
+    dim: 100
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags
+    base_file:  /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+    query_file: /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy

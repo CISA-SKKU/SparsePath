@@ -1,0 +1,101 @@
+# M11 PQ false-filtering — per-dataset artifact paths.
+# Copy to datasets.yaml and fill the <PLACEHOLDER> paths, then:
+#   python run_m11.py --config datasets.yaml [--dataset laion100M]
+#
+# All artifacts are the SAME ones the pipeline produces — this harness just
+# reads them single-node. Where to find each (verify against the pipeline
+# config that built the graph):
+#   graph_file  : <graph_dir>/checkpoints/iteration0         (the Vamana graph; no extension)
+#                 needs sidecars iteration0.tags and iteration0.frozen next to it
+#                 (pipeline defaults save_data_file=false, so there is NO .data —
+#                  vectors come from base_file instead; that's why load_index uses
+#                  load_graph_only(graph, base, tags)).
+#   base_file   : the dataset base vectors (.fbin/.bin/.i8bin) in Datasets
+#   tags_file   : <graph_dir>/checkpoints/iteration0.tags
+#   pq_codebook : <pq_dir>/pq_codebook.bin        (from the pq_build stage)
+#   pq_codes    : <pq_dir>/pq_all_codes.bin
+#   query_file  : the query set used for recall (bin: [i32 npts][i32 dim][data])
+#   gt_file     : ground truth (bin: [i32 npts][i32 K][u32 ids][f32 dists])
+#
+# id_offset: mapped_id = (tag - 1) + id_offset. GT ids are GLOBAL ids. For the
+#   iteration0 (initial) graph, global id == base index == tag-1, so id_offset=0.
+#   For a later/shifted checkpoint (e.g. GT id space is a shifted window), set the
+#   offset so mapped ids land in GT space. The sanity-corr + recall(OFF) sanity
+#   checks will scream if this is wrong (recall(OFF) should be high, e.g. >0.99).
+#
+# NOTE: max_points / max_capacity must be >= the values used at build time
+#   (max_capacity = build.max_capacity, typically ~1.1 * total_points).
+
+datasets:
+  deep100M:
+    dtype: float32
+    dim: 96
+    max_points: 110000000        # >= build max_points
+    max_capacity: 110000000      # >= build.max_capacity (PQ code array upper bound)
+    graph_file:  <PLACEHOLDER>/checkpoints/iteration0
+    base_file:   <PLACEHOLDER>/deep100M_base.fbin
+    tags_file:   <PLACEHOLDER>/checkpoints/iteration0.tags
+    pq_codebook: <PLACEHOLDER>/pq_codebook.bin
+    pq_codes:    <PLACEHOLDER>/pq_all_codes.bin
+    query_file:  <PLACEHOLDER>/deep100M_query.fbin
+    gt_file:     <PLACEHOLDER>/deep100M_gt.bin
+    id_offset: 0
+    K: 10
+    L_search: 100
+    conv_window: 3
+    conv_threshold_pct: 1.0
+    alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+    n_query: 10000               # sub-sample for a fast first pass; null = all
+    num_threads: 0
+
+  sift100M:
+    dtype: uint8
+    dim: 128
+    max_points: 110000000
+    max_capacity: 110000000
+    graph_file:  <PLACEHOLDER>/checkpoints/iteration0
+    base_file:   <PLACEHOLDER>/sift100M_base.u8bin
+    tags_file:   <PLACEHOLDER>/checkpoints/iteration0.tags
+    pq_codebook: <PLACEHOLDER>/pq_codebook.bin
+    pq_codes:    <PLACEHOLDER>/pq_all_codes.bin
+    query_file:  <PLACEHOLDER>/sift100M_query.u8bin
+    gt_file:     <PLACEHOLDER>/sift100M_gt.bin
+    id_offset: 0
+    K: 10
+    L_search: 100
+    n_query: 10000
+
+  spacev100M:
+    dtype: int8
+    dim: 100
+    max_points: 110000000
+    max_capacity: 110000000
+    graph_file:  <PLACEHOLDER>/checkpoints/iteration0
+    base_file:   <PLACEHOLDER>/spacev100M_base.i8bin
+    tags_file:   <PLACEHOLDER>/checkpoints/iteration0.tags
+    pq_codebook: <PLACEHOLDER>/pq_codebook.bin
+    pq_codes:    <PLACEHOLDER>/pq_all_codes.bin
+    query_file:  <PLACEHOLDER>/spacev100M_query.i8bin
+    gt_file:     <PLACEHOLDER>/spacev100M_gt.bin
+    id_offset: 0
+    K: 10
+    L_search: 100
+    n_query: 10000
+
+  # THE reviewer-critical dataset (R3·D7): 512-d -> largest PQ approximation error.
+  laion100M:
+    dtype: float32
+    dim: 512
+    max_points: 110000000
+    max_capacity: 110000000
+    graph_file:  <PLACEHOLDER>/checkpoints/iteration0
+    base_file:   <PLACEHOLDER>/laion100M_base.fbin
+    tags_file:   <PLACEHOLDER>/checkpoints/iteration0.tags
+    pq_codebook: <PLACEHOLDER>/pq_codebook.bin
+    pq_codes:    <PLACEHOLDER>/pq_all_codes.bin
+    query_file:  <PLACEHOLDER>/laion100M_query.fbin
+    gt_file:     <PLACEHOLDER>/laion100M_gt.bin
+    id_offset: 0
+    K: 10
+    L_search: 100
+    n_query: 10000

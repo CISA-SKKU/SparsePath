@@ -1,0 +1,56 @@
+# MR#8 auxiliary quantizer arm — LVQ (Aguerrebere et al., VLDB'23) at D/2..D
+# bytes/vector (2026-08-21).
+#
+# Identical to d4_deep100M.yaml in EVERY other respect (SP=lits_k4_iter150 graph,
+# beam-scope terminal rerank, L grid, queries, GT, partition labels); only the
+# distance modes change. LVQ is SIMULATED on the fly from the raw vectors (the
+# harness quantizes each candidate as it is scored) — this is a RECALL-ONLY arm,
+# timing in the output JSON is meaningless by construction.
+#
+# Modes and per-vector byte accounting (codes + per-vector scale/offset floats):
+#   lvq8   : mean-centered 8-bit primary                 -> D   + 8  B/vec
+#   lvq4   : mean-centered 4-bit primary (2 dims/byte)   -> D/2 + 8  B/vec
+#            = the maximum compression scalar quantization can reach
+#   lvq4x8 : 4-bit primary drives the traversal, terminal rerank uses the
+#            primary + 8-bit residual RECONSTRUCTION (never the raw vector)
+#                                                        -> D/2 + D + 16 B/vec
+# The global mean is computed once from a strided scan of the active window.
+#
+# q1_load_pq: false — no mode touches PQ, so the multi-GB pq_all_codes.bin is
+# not loaded (pq_M in the output rows is therefore 0, by design).
+_common: &common
+  dtype: float32
+  dim: 96
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+  pq_codebook: /experiments/artifacts/deep100M/pq/M24_active/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/deep100M/pq/M24_active/pq_all_codes.bin
+  query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 75, 100, 125, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  n_query: null
+  num_threads: 64
+  max_drops: 100000
+  q1_modes: exact,lvq8,lvq4,lvq4x8
+  q1_load_pq: false
+  q1_rerank_scope: beam
+  q1_partitions: [balanced, centroid, nc, lits]
+  partitions:
+    - {name: balanced, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}
+    - {name: centroid, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+    - {name: nc,       M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid/partition_ids.npy}
+    - {name: lits,     M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  deep100M_SP_lits150_m24_lvq:
+    <<: *common
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags

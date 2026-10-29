@@ -1,0 +1,77 @@
+# M10 partition-aware remote-fetch-round reduction — deep/sift/spacev. CONTAINER paths.
+# nc-routing coordinator + partition_of (gid-indexed). vamana graph carries
+# balanced/centroid placements; lits graph carries the lits placement.
+_common: &common
+  K: 10
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  batch_sizes: [0, 8]
+  L_search: [100, 200]
+  n_query: 5000
+  num_threads: 64
+  max_points: 100000000
+  id_offset: 0
+  active_gid_lo: 150000000        # iter150 active gids [150M,250M)
+  active_n: 100000000
+  centroid_sample_stride: 97
+
+datasets:
+  deep100M:
+    <<: *common
+    dtype: float32
+    dim: 96
+    base_file:  /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+    query_file: /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+    graphs:
+      - name: vamana_iter150
+        graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+        tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+        placements:
+          - {name: balanced, kind: partition_ids, M: 4, file: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}
+          - {name: centroid, kind: partition_ids, M: 4, file: /experiments/artifacts/deep100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - name: lits_iter150
+        graph_file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150
+        tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.tags
+        placements:
+          - {name: lits, kind: labels, M: 4, file: /experiments/artifacts/deep100M/graph/checkpoints/lits_k4_iter150.labels}
+
+  sift100M:
+    <<: *common
+    dtype: uint8
+    dim: 128
+    base_file:  /workspace/datasets_nfs/SIFT1B/sift300M_base.bin
+    query_file: /experiments/artifacts/sift100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/sift100M/gt/gt_iteration150_K10_Q10000.npy
+    graphs:
+      - name: vamana_iter150
+        graph_file: /experiments/artifacts/sift100M/graph/checkpoints/iteration150
+        tags_file:  /experiments/artifacts/sift100M/graph/checkpoints/iteration150.tags
+        placements:
+          - {name: balanced, kind: partition_ids, M: 4, file: /experiments/artifacts/sift100M/partition/4_partitions_round_robin/partition_ids.npy}
+          - {name: centroid, kind: partition_ids, M: 4, file: /experiments/artifacts/sift100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - name: lits_iter150
+        graph_file: /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150
+        tags_file:  /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150.tags
+        placements:
+          - {name: lits, kind: labels, M: 4, file: /experiments/artifacts/sift100M/graph/checkpoints/lits_k4_iter150.labels}
+
+  spacev100M:
+    <<: *common
+    dtype: int8
+    dim: 100
+    base_file:  /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+    query_file: /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+    gt_file:    /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy
+    graphs:
+      - name: vamana_iter150
+        graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/iteration150
+        tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/iteration150.tags
+        placements:
+          - {name: balanced, kind: partition_ids, M: 4, file: /experiments/artifacts/spacev100M/partition/4_partitions_round_robin/partition_ids.npy}
+          - {name: centroid, kind: partition_ids, M: 4, file: /experiments/artifacts/spacev100M/partition/4_partitions_nearest_centroid_balanced/partition_ids.npy}
+      - name: lits_iter150
+        graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150
+        tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.tags
+        placements:
+          - {name: lits, kind: labels, M: 4, file: /experiments/artifacts/spacev100M/graph/checkpoints/lits_k4_iter150.labels}

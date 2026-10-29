@@ -1,0 +1,109 @@
+# ============================================================================
+# AE core scenario — deep100M × 4 workers × "Balanced" arm (paper baseline)
+# ============================================================================
+# Balanced = round-robin insert placement + plain Vamana update graph
+#            (paper: "Balanced"; config lineage: e1_baseline/deep100M_4p_balanced_T16).
+# Search conventions (revision): FROZEN_ONLY seeding (entry_mode 1),
+# frozen-seed cache on, CAP (convergence-aware prefetch) OFF for this arm.
+#
+# Phase B (prepare, orchestrator):
+#   ./scripts/prepare_data.sh configs/ae/deep100M_4p_balanced.yaml --from partition --skip-deploy
+#   docker compose exec danns python3 pipeline/run_pipeline.py \
+#       --config /experiments/configs/ae/deep100M_4p_balanced.yaml --stages gt
+# Phase C (run, orchestrator host):
+#   ./scripts/run_experiment.sh configs/ae/deep100M_4p_balanced.yaml --nodes 1,2,3,4
+# Inputs expected under /experiments/artifacts/deep100M/ (see artifacts/deep100M/README.md):
+#   graph/checkpoints/iteration150{,.tags,.frozen}      ← prebuilt bundle (or Phase B-full)
+#   gt/gt_iteration150_K10_Q10000.{npy,json,_queries.npy} ← bundle, or `--stages gt`
+# ============================================================================
+experiment_name: vldb_deep100M
+description: "AE core — deep100M 4p Balanced (round_robin, iteration150), search L-sweep T16"
+experiment:
+  name: ae_deep100M_4p_balanced
+
+artifacts:
+  base_dir: /experiments/artifacts
+results:
+  base_dir: /experiments/results
+
+pipeline:
+  stages: [partition, colocation, gt, distributed_engine]
+  skip_if_exists: true          # build stage skips when graph/checkpoints/* exists
+  pmu: false
+
+trace:
+  enabled: false
+
+dataset:
+  id: deep100M
+  data_root: /workspace/datasets_nfs
+  name: deep300M
+  base_file: DEEP1B/deep300M_base.fbin     # 300M pool; the graph's active window is 100M
+  query_file: DEEP1B/deep300M_query.fbin
+  data_type: float32
+  dimension: 96
+
+build:
+  method: python
+  initial_size: 100_000_000
+  max_capacity: 120_000_000
+  R: 64
+  L: 100
+  alpha: 1.2
+  graph_variant: iteration150
+
+partition:
+  num_partitions: 4
+  insert_strategy: round_robin
+
+colocation:
+  enabled: true
+  fetch_mode: separated
+  max_capacity_factor: 1.2
+  # By default workers read the colocation payload from the shared
+  # /experiments/artifacts/... mount. To read from a node-local SSD instead,
+  # copy colocation/<N>_partitions_<strategy>/<variant>/ to every worker's
+  # WORKER_LOCAL_SSD (mounted at /workspace/colocation_local) and uncomment:
+  # local_dir: /workspace/colocation_local
+
+gt:
+  K: 10
+  num_queries: 10_000
+
+search:
+  K: 10
+  L_values: [100]               # overridden per workload op
+  num_queries: 10_000
+  num_threads: 16
+  in_run_recall: false
+  query_loop_repeats: 5         # widen the timing window; recall scored on the first pass
+  skip_timing: true             # per-query timers off (measurement baseline)
+
+convergence_aware_prefetch:
+  enabled: false
+  batched_fetching: { enabled: false, batch_size: 0, convergence_window: 3, convergence_threshold_pct: 1.0 }
+  pq_filtering: { enabled: false }
+
+benchmark_probes:
+  compute_skip: false
+
+distributed_search:
+  entry_mode: 1                 # FROZEN_ONLY (revision convention)
+  frozen_seed_cache: true
+
+distributed_engine:
+  enabled: true
+  partition_policy: round_robin
+  save_checkpoint: false
+  fail_fast: true
+  workload:
+    - op: search
+      num_queries: 10000
+      K: 10
+      num_threads: 16
+      L_values: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150,
+                 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300]
+
+cluster:
+  nodes_file: ../nodes.yaml     # experiments/configs/nodes.yaml (from nodes.yaml.template)
+  coordinator_node: 0

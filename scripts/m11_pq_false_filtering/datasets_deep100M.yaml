@@ -1,0 +1,35 @@
+# deep100M iteration0 — CONTAINER paths (run inside worker-host danns container).
+# iteration0 = initial 100M active graph, tags sequential (gid = loc = tag-1 in [0,100M)),
+# GT deep100M_gt_K10_Q10000.npy in [0,100M) -> id_offset 0. frozen loc = 100M (=max_points).
+# pq_all_codes N=300M (covers gid), M=12.
+datasets:
+  deep100M:
+    dtype: float32
+    dim: 96
+    max_points: 100000000        # graph header start(frozen loc)=100M -> ctor max_points
+    max_capacity: 300000000      # pq_all_codes N=300M
+    graph_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration0
+    base_file:   /workspace/datasets_nfs/DEEP1B/deep100M_base.fbin
+    tags_file:   /experiments/artifacts/deep100M/graph/checkpoints/iteration0.tags
+    pq_codebook: /experiments/artifacts/deep100M/pq/M12/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/deep100M/pq/M12/pq_all_codes.bin
+    query_file:  /workspace/datasets_nfs/DEEP1B/deep100M_query.fbin
+    gt_file:     /workspace/datasets_nfs/DEEP1B/deep100M_gt_K10_Q10000.npy
+    id_offset: 0
+    R: 64
+    L_build: 100
+    K: 10
+    L_search: 100
+    L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+    conv_window: 3
+    conv_threshold_pct: 1.0
+    alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+    n_query: null                # all 10000 queries
+    num_threads: 32              # OpenMP search threads (physical cores; HT collapses beyond)
+    max_drops: 2000000
+    # partition-aware modes. iteration0 active[0:100M] partition is identical across
+    # rr/lits/centroid (strategies diverge only for inserted nodes) = balanced spatial
+    # (streaming-kmeans) partition, which is what SparsePath uses for the initial set.
+    partitions:
+      - {name: M4, M: 4, path: /experiments/artifacts/deep100M/partition/4_partitions_round_robin/partition_ids.npy}
+      - {name: M8, M: 8, path: /experiments/artifacts/deep100M/partition/8_partitions_round_robin/partition_ids.npy}

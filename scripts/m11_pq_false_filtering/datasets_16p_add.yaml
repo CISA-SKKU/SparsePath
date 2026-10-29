@@ -1,0 +1,70 @@
+# 100M M=16 data-point add-on (deep100M + spacev100M iteration150).
+# Fills the 16p point for the M-scaling (4p/8p already in the base variant runs).
+# Balanced(rr)/Centroid(ncb) at 16p only. CONTAINER paths.
+
+_deep: &deep
+  dtype: float32
+  dim: 96
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/DEEP1B/deep300M_base.fbin
+  pq_codebook: /experiments/artifacts/deep100M/pq/M12/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/deep100M/pq/M12/pq_all_codes.bin
+  query_file:  /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/deep100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 150000000
+  active_n: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+_spacev: &spacev
+  dtype: int8
+  dim: 100
+  max_points: 100000000
+  max_capacity: 300000000
+  base_file:   /workspace/datasets_nfs/SPACEV1B/spacev300M_base.i8bin
+  pq_codebook: /experiments/artifacts/spacev100M/pq/M10/pq_codebook.bin
+  pq_codes:    /experiments/artifacts/spacev100M/pq/M10/pq_all_codes.bin
+  query_file:  /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000_queries.npy
+  gt_file:     /experiments/artifacts/spacev100M/gt/gt_iteration150_K10_Q10000.npy
+  id_offset: 0
+  active_gid_lo: 150000000
+  active_n: 100000000
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+
+datasets:
+  deep100M_iter150_16p:
+    <<: *deep
+    graph_file: /experiments/artifacts/deep100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/deep100M/graph/checkpoints/iteration150.tags
+    partitions:
+      - {name: Balanced_16p, M: 16, path: /experiments/artifacts/deep100M/partition/16_partitions_round_robin/partition_ids.npy}
+      - {name: Centroid_16p, M: 16, path: /experiments/artifacts/deep100M/partition/16_partitions_nearest_centroid_balanced/partition_ids.npy}
+
+  spacev100M_iter150_16p:
+    <<: *spacev
+    graph_file: /experiments/artifacts/spacev100M/graph/checkpoints/iteration150
+    tags_file:  /experiments/artifacts/spacev100M/graph/checkpoints/iteration150.tags
+    partitions:
+      - {name: Balanced_16p, M: 16, path: /experiments/artifacts/spacev100M/partition/16_partitions_round_robin/partition_ids.npy}
+      - {name: Centroid_16p, M: 16, path: /experiments/artifacts/spacev100M/partition/16_partitions_nearest_centroid_balanced/partition_ids.npy}

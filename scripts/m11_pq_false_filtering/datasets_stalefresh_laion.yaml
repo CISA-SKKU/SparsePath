@@ -1,0 +1,60 @@
+# M11 Tier A — LAION 100M (512-d) stale vs fresh codebook (2026-08-07).
+#
+# The fifth dataset of the stale-vs-fresh control. The other four pairs (deep100M M12,
+# deep200M M12, spacev100M M10, sift100M M16) span 96-128 dimensions; this one answers
+# the question those cannot: does a codebook trained on the INITIAL distribution still
+# hold up at 512 dimensions and the most aggressive compression we deploy (2048 B -> 64 B,
+# a ratio of 32)?
+#
+#   stale arm : train on [0, 100M)        (initial_size = 100_000_000, per artifacts/laion100M/config.yaml)
+#   fresh arm : train on [150M, 250M)     (the active window after 150 update rounds)
+#   both      : encode the SAME active window, M=64, ksub=256, train_sample=100000,
+#               niter=20, seed=42  -- identical to the other four pairs.
+#
+# recall(OFF) is codebook-independent, so the two arms MUST print identical recall(OFF)
+# at every L. If they do not, the setup is wrong.
+#
+# Graph/partition/GT are the same LITS assets as datasets_matrix7.yaml::laion100M_4p
+# (lits_k4_iter150 + partition regenerated from its .labels; GT reused because
+# iteration150 and lits_k4_iter150 cover the identical active gid set [150M,250M)).
+#
+# NOTE the base is a symlink: laion300M_base.fbin -> laion400M_base.fbin (n=407,314,954).
+# pool-n was set to 298405759 at build time to reproduce the shipped M64 codes header.
+
+_laion100M: &laion100M
+  active_gid_lo: 150000000
+  active_n: 100000000
+  max_points: 100000000
+  max_capacity: 300000000
+  dtype: float32
+  dim: 512
+  R: 64
+  L_build: 100
+  K: 10
+  L_search: 100
+  L_search_sweep: [50, 100, 150, 200, 250, 300, 350, 400]
+  conv_window: 3
+  conv_threshold_pct: 1.0
+  alphas: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]
+  id_offset: 0
+  n_query: null
+  num_threads: 32
+  max_drops: 2000000
+  base_file:  /workspace/datasets_nfs/LAION400M/laion300M_base.fbin
+  query_file: /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000_queries.npy
+  gt_file:    /experiments/artifacts/laion100M/gt/gt_iteration150_K100_Q10000.npy
+  graph_file: /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150
+  tags_file:  /experiments/artifacts/laion100M/graph/checkpoints/lits_k4_iter150.tags
+  partitions:
+    - {name: LITS_4p, M: 4, path: /experiments/artifacts/laion100M/partition/4_partitions_lits_balanced/partition_ids.npy}
+
+datasets:
+  laion100M_M64_stale:
+    <<: *laion100M
+    pq_codebook: /experiments/artifacts/laion100M/pq/M64_stale/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/laion100M/pq/M64_stale/pq_all_codes.bin
+
+  laion100M_M64_fresh:
+    <<: *laion100M
+    pq_codebook: /experiments/artifacts/laion100M/pq/M64_fresh/pq_codebook.bin
+    pq_codes:    /experiments/artifacts/laion100M/pq/M64_fresh/pq_all_codes.bin

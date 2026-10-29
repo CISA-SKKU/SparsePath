@@ -1,0 +1,52 @@
+# SparsePath artifact — worker container template (RDMA node).
+#
+# On each worker host:
+#   cp docker-compose.worker.yml.template docker-compose.worker.yml
+#   cp .env.example .env && $EDITOR .env      # WORKER_LOCAL_SSD, RDMA_DEVICE, RDMA_GID_INDEX, ...
+#   docker compose -f docker-compose.worker.yml up -d
+#
+# Differences from docker-compose.yml (orchestrator):
+#   * mounts /dev/infiniband for RDMA verbs
+#   * mounts the node-local SSD at /workspace/colocation_local (colocation.local_dir)
+#   * RDMA_DEVICE / RDMA_GID_INDEX are consumed by the engine (cluster/src/cluster_setup.cpp)
+# Node identity (id, RDMA IP, ssh name) is NOT set here — it comes from
+# experiments/configs/nodes.yaml, which the orchestrator reads.
+services:
+  danns:
+    image: danns:latest
+    container_name: danns
+    hostname: danns
+    entrypoint: /workspace/entrypoint.sh
+    command: ["sleep", "infinity"]
+    network_mode: host
+    privileged: true
+    ipc: host
+    ulimits:
+      nproc: -1
+      nofile: { soft: 65536, hard: 65536 }
+      memlock: { soft: -1, hard: -1 }
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - .:/workspace
+      - ${EXPERIMENTS_ROOT:-./experiments}:/experiments
+      - ${DATASETS_ROOT:?set DATASETS_ROOT in .env}:/workspace/datasets_nfs:ro
+      - ${WORKER_LOCAL_SSD:?set WORKER_LOCAL_SSD in .env}:/workspace/colocation_local
+      - /dev/infiniband:/dev/infiniband
+      - /sys/class/infiniband:/sys/class/infiniband:ro
+    working_dir: /workspace
+    environment:
+      - RDMA_DEVICE=${RDMA_DEVICE:-mlx5_0}
+      - RDMA_GID_INDEX=${RDMA_GID_INDEX:-3}
+      # Optional: rename host RDMA devices inside the container after a re-create,
+      # e.g. RDMA_RENAME_PAIRS=rocep189s0f0:mlx5_0  (see entrypoint.sh)
+      # - RDMA_RENAME_PAIRS=
+      - DANNS_ARCH=${DANNS_ARCH:-icelake-server}      # build_all.sh ISA target (see .env.example)
+      - DANNS_FAST_MATH=${DANNS_FAST_MATH:-ON}
+      - OMP_PLACES=cores
+      - OMP_PROC_BIND=close
+      - HOST_UID=${HOST_UID:-1000}
+      - HOST_GID=${HOST_GID:-1000}
+      - USERNAME=${USERNAME:-sparsepath}
+    stdin_open: true
+    tty: true
